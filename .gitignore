@@ -10,3 +10,5 @@
 projects/*/output/
 __pycache__/
 projects/demo/
+projects/*/clips/
+projects/*/voice/

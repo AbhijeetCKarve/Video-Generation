@@ -209,9 +209,45 @@ What the viewer sees (about 1 min 50 s for N = 6):
 | `--speed 1.5` | Make the whole animation 1.5× faster (use `0.8` for slower) |
 | `--theme bold` | Use another theme's colours and fonts (match the one in `project.json`) |
 
-Change the titles in `projects/nqueens/project.json`. Delete the `"music"` block for no music. To
-add **narration**, record a voice-over while watching the clip (Tella works for this too) and
-replace the clip's audio. You can also record yourself in Tella, export it, and list it as a second clip after the animation.
+Change the titles in `projects/nqueens/project.json`. Delete the `"music"` block for no music.
+
+### Adding your own voice-over
+
+Your voice is recorded **one line at a time**, then each line is placed exactly where its scene
+starts. If you talk longer than a scene lasts, that frame is simply held until you finish. So you
+never have to match the timing yourself, and you can redo any single line.
+
+```bash
+# 1. Write the narration script (10 short lines, numbered 01, 02, ...)
+python3 generators/nqueens.py --n 6 --out projects/nqueens/clips/nqueens.mp4 --script-only
+#    → projects/nqueens/clips/nqueens.script.txt   (edit the wording here if you like)
+
+# 2. Record yourself, teleprompter-style
+python3 scripts/record_voiceover.py projects/nqueens/clips/nqueens.script.txt projects/nqueens/voice
+#    shows a line → Enter → read it → Enter → [Enter]=next  p=play back  r=redo  q=quit
+#    Quit any time; running it again continues where you stopped. Redo one line: --only 4
+
+# 3. Render the animation with your voice, then build as usual
+python3 generators/nqueens.py --n 6 --out projects/nqueens/clips/nqueens.mp4 --voice projects/nqueens/voice
+python3 vedit.py build projects/nqueens/project.json
+```
+
+| Microphone setup | |
+|---|---|
+| macOS | Works out of the box (first mic). The first time, allow Terminal to use the microphone (System Settings → Privacy & Security → Microphone). Another mic: list them with `ffmpeg -f avfoundation -list_devices true -i ""` and pass `--device ":1"` |
+| Windows | List mics with `ffmpeg -list_devices true -f dshow -i dummy`, then pass `--device "audio=Microphone (USB Audio)"` with your mic's exact name |
+| Linux | Uses the default PulseAudio/PipeWire input |
+| Rather use your phone or Tella? | Record each line as its own file and name them `01.m4a`, `02.m4a`, … (the number = the line in the script). Put them in `projects/nqueens/voice/`. Any audio format works |
+
+Tips for a good-sounding voice-over:
+
+- Record in a quiet, soft room. Curtains and a sofa beat an empty room with bare walls.
+- Keep the mic about a hand's width from your mouth.
+- Leave a short pause before and after each line. The silence is trimmed off automatically.
+- vedit cleans up the voice too: it removes rumble and hiss and evens out the volume. It also
+  lowers the music while you speak (`"duck": true`).
+- Changed the wording of a line? Re-record just that line (`--only N`). Changed `--n`? The script
+  changes too, so make a new script and record again.
 
 ## Troubleshooting
 
