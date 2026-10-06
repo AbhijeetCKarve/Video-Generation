@@ -294,6 +294,36 @@ Edit the wording or moods in the `.script.txt`, then regenerate (`--only 7` redo
 > Use either the AI voice or your own recordings in `projects/nqueens/voice/`, not both. A recorded
 > `03.m4a` would sit next to an AI `03.wav` with the same number.
 
+### Your voice, cloned from one recording
+
+Record yourself once on your phone. Read some of the script lines, or just talk for 30–60 seconds.
+`scripts/clone_voiceover.py` then:
+
+1. **Transcribes** your recording (Whisper) and finds which script lines you read. Those lines use
+   **your real recording**, cleaned up.
+2. **Clones your voice** for every other line (ZipVoice). It tries each of your lines as the voice
+   sample and keeps the best take. "Best" combines three things: how much it sounds like you
+   (measured by a speaker-recognition model), how clearly it can be understood (Whisper transcribes
+   it again), and, for excited lines, how lively the pitch is.
+3. Writes `01.wav`, `01.json`, … with caption timings snapped to your real pauses.
+
+```bash
+pip install sherpa-onnx numpy soundfile
+python3 generators/nqueens.py --n 6 --out projects/nqueens/clips/nqueens.mp4 --script-only
+python3 scripts/clone_voiceover.py projects/nqueens/clips/nqueens.script.txt projects/nqueens/voice \
+  --reference my-voice.m4a
+python3 generators/nqueens.py --n 6 --out projects/nqueens/clips/nqueens.mp4 --voice projects/nqueens/voice
+python3 vedit.py build projects/nqueens/project.json
+```
+
+The first run downloads about 1.6 GB of models into `models/`. After that everything runs offline
+on your CPU (about 4 minutes for 6 cloned lines). `--clone-all` clones every line, even ones you
+recorded, for a perfectly even sound. `--speed 0.95` slows the cloned lines a little.
+
+Tips: a quiet room gives the best clone. Reading a few script lines in the tone you want (curious,
+excited, calm) helps a lot, because the clone copies the delivery of its sample. Only clone a voice
+that is yours.
+
 ### Adding your own voice-over
 
 Your voice is recorded **one line at a time**, then each line is placed exactly where its scene

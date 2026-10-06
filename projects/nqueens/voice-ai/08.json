@@ -1,0 +1,20 @@
+{
+ "mood": "explain",
+ "phrases": [
+  {
+   "text": "Look at the boxes on the right.",
+   "start": 0.0,
+   "end": 1.71
+  },
+  {
+   "text": "That's the program's memory:",
+   "start": 2.09,
+   "end": 3.789
+  },
+  {
+   "text": "for each row, the column where its queen sits.",
+   "start": 3.789,
+   "end": 6.581
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+{
+ "mood": "warm",
+ "phrases": [
+  {
+   "text": "So, what's the big idea?",
+   "start": 0.0,
+   "end": 1.537
+  },
+  {
+   "text": "Backtracking throws away bad choices early,",
+   "start": 2.037,
+   "end": 4.846
+  },
+  {
+   "text": "so we never have to check every possible arrangement.",
+   "start": 4.846,
+   "end": 8.308
+  }
+ ]
+}

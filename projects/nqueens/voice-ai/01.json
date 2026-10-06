@@ -1,0 +1,20 @@
+{
+ "mood": "curious",
+ "phrases": [
+  {
+   "text": "Here's a classic puzzle.",
+   "start": 0.0,
+   "end": 1.392
+  },
+  {
+   "text": "Can you place six queens on a six-by-six chessboard,",
+   "start": 1.772,
+   "end": 5.05
+  },
+  {
+   "text": "so that no two queens can attack each other?",
+   "start": 5.05,
+   "end": 7.823
+  }
+ ]
+}
