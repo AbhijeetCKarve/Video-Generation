@@ -11,6 +11,6 @@ projects/*/output/
 __pycache__/
 projects/demo/
 projects/*/clips/
-projects/*/voice/
+projects/*/voice*/
 models/
 !music/generated-*.mp3
