@@ -7,6 +7,6 @@
     {"file": "clips/nqueens.mp4", "captions": "clips/nqueens.srt"}
   ],
   "outro": {"title": "Thanks for watching", "subtitle": "Try it yourself with N = 8", "duration": 3},
-  "music": {"mood": "focus", "volume": 0.25, "duck": true},
+  "music": {"mood": "focus", "volume": 0.2, "duck": true},
   "output": "output/nqueens-final.mp4"
 }

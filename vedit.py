@@ -23,7 +23,9 @@ ROOT = Path(__file__).resolve().parent
 THEMES_DIR = ROOT / "themes"
 MUSIC_DIR = ROOT / "music"
 CATALOG = MUSIC_DIR / "catalog.json"
-MUSIC_SOURCES = ["pixabay", "mixkit", "thematic", "other"]
+# where a track came from - recorded in the catalog and the credits file
+MUSIC_SOURCES = ["generated", "pixabay", "mixkit", "thematic", "youtube", "fma", "incompetech",
+                 "uppbeat", "bensound", "chosic", "musopen", "other"]
 
 
 # ---------------------------------------------------------------- helpers
@@ -258,8 +260,8 @@ def cmd_build(args):
             normalise_only(joined, out, args.verbose)
 
     if credits:
-        lines = [f"\"{c.get('title', c['file'])}\" by {c.get('artist', 'unknown')} - "
-                 f"{c['source']} ({c.get('url', 'no url')}) - license: {c.get('license', '?')}"
+        lines = [f"\"{c.get('title', c['file'])}\" by {c.get('artist', 'unknown')} - {c['source']}"
+                 + (f" ({c['url']})" if c.get("url") else "") + f" - license: {c.get('license', '?')}"
                  for c in credits]
         (out.with_suffix(".credits.txt")).write_text("Music credits\n" + "\n".join(lines) + "\n")
     print(f"Done: {out}  ({probe_duration(out):.1f}s)")

@@ -76,15 +76,52 @@ This makes `projects/my-first-video/` with a `clips/` folder, an `output/` folde
 > Tip: if you recorded several parts, export each one and list them all under `"clips"` —
 > they'll play in order.
 
-### Step 4 — Get music (Pixabay Music, Mixkit, Thematic)
+### Step 4 — Get music (free)
 
-| Source | Where | Notes |
-|---|---|---|
-| Pixabay Music | https://pixabay.com/music/ | Free, no attribution required (Pixabay Content License) |
-| Mixkit | https://mixkit.co/free-stock-music/ | Free under the Mixkit License; also has free sound effects & video clips |
-| Thematic | https://www.hellothematic.com | Free for creators, but you must **register the YouTube video** in Thematic so it isn't flagged by Content ID |
+You have two free options. You can mix them in the same library.
 
-Download an MP3, then register it in your library with a mood tag so you can find it later:
+#### Option A: music made by vedit (ready to use, nothing to download)
+
+`generators/music.py` composes and plays **original** background music from code: chord
+progressions, electric piano, warm pads, bass, soft drums and a melody. Because nobody else owns
+it, it is free for any use, needs **no credit**, and can never get a YouTube Content ID claim.
+Three tracks are already in `music/`:
+
+| File | Style | Moods (for `project.json`) | Feel |
+|---|---|---|---|
+| `generated-lofi.mp3` | lofi, 78 bpm | focus, calm, study, lofi | Jazzy chords, soft swung drums, vinyl crackle. Great under teaching |
+| `generated-ambient.mp3` | ambient, 64 bpm | calm, ambient, focus, thoughtful | Slow pads and soft bells, no drums. The least distracting |
+| `generated-upbeat.mp3` | upbeat, 104 bpm | upbeat, happy, energetic, intro | Bright piano, four-on-the-floor beat. For intros and promos |
+
+Make more (each takes about 30 s). A different `--seed` gives a different melody and variation:
+
+```bash
+python3 generators/music.py --list
+python3 generators/music.py --style lofi --seed 7 --length 240 --name lofi-long
+python3 generators/music.py --style ambient --seed 3 --name calm-2
+```
+
+The new track is added to the catalog automatically with its moods. Then use
+`"music": {"mood": "calm"}` or `"music": {"track": "calm-2.mp3"}` in `project.json`.
+
+#### Option B: free music websites
+
+Download an MP3 and register it with `--source`, so the credits file says where it came from.
+
+| Site | `--source` | Credit needed? | Notes |
+|---|---|---|---|
+| [Pixabay Music](https://pixabay.com/music/) | `pixabay` | No | Pixabay Content License. A few tracks are registered with Content ID; if a claim appears, dispute it with the license link |
+| [Mixkit](https://mixkit.co/free-stock-music/) | `mixkit` | No | Mixkit License. Also has free sound effects (clicks, whooshes) and video clips |
+| [Thematic](https://www.hellothematic.com) | `thematic` | No | Free account. **Register each YouTube video** in Thematic, or it may be flagged |
+| [YouTube Audio Library](https://studio.youtube.com) (YouTube Studio → Audio Library) | `youtube` | Some tracks | The library shows which tracks need credit. Safe for YouTube, including monetised videos |
+| [Free Music Archive](https://freemusicarchive.org) | `fma` | Usually | The licence differs per track. Choose CC0 or CC BY. Avoid "NC" (non-commercial) if you monetise |
+| [Incompetech](https://incompetech.com) (Kevin MacLeod) | `incompetech` | **Yes** | CC BY 4.0. Put the credit line in the description |
+| [Uppbeat](https://uppbeat.io) | `uppbeat` | **Yes** (free plan) | Free plan has a monthly download limit and gives you a credit / claim-clearing code |
+| [Bensound](https://www.bensound.com) | `bensound` | **Yes** (free licence) | Free with credit; paid licence removes it |
+| [Chosic](https://www.chosic.com/free-music/all/) | `chosic` | Usually | Mostly Creative Commons tracks from other artists. Check each page |
+| [Musopen](https://musopen.org) | `musopen` | Usually no | Public-domain classical recordings. Calm piano and strings work well under lessons |
+
+> Licences change. Read the licence on the track's page when you download it and copy it into `--license`.
 
 ```bash
 python3 vedit.py music add ~/Downloads/calm-lofi.mp3 \
@@ -183,9 +220,8 @@ vedit then adds the title cards, captions and music just like for any other clip
 # 1. Generate the animation (MP4 + SRT captions) — takes about a minute
 python3 generators/nqueens.py --n 6 --out projects/nqueens/clips/nqueens.mp4
 
-# 2. Add a calm background track tagged "focus" (download one from Pixabay / Mixkit / Thematic)
-python3 vedit.py music add ~/Downloads/lofi-study.mp3 --source pixabay --mood focus \
-  --url "https://pixabay.com/music/..." --license "Pixabay Content License"
+# 2. Music: the project asks for mood "focus", which the built-in generated-lofi.mp3 already has.
+#    (Or add your own track tagged "focus", see Step 4.)
 
 # 3. Build the finished video
 python3 vedit.py build projects/nqueens/project.json

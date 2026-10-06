@@ -13,3 +13,4 @@ projects/demo/
 projects/*/clips/
 projects/*/voice/
 models/
+!music/generated-*.mp3
