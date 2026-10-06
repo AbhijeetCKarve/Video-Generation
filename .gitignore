@@ -1,0 +1,12 @@
+# media is large - keep it out of git
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.mp3
+*.wav
+*.m4a
+*.srt
+projects/*/output/
+__pycache__/
+projects/demo/

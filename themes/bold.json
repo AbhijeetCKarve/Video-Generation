@@ -1,0 +1,21 @@
+{
+  "description": "Black background, yellow accent, big boxed captions - social / shorts",
+  "font": "DejaVu Sans:bold",
+  "background": "#000000",
+  "text": "#FFFFFF",
+  "muted": "#FACC15",
+  "accent": "#FACC15",
+  "title_scale": 0.09,
+  "music_volume": 0.35,
+  "captions": {
+    "font": "DejaVu Sans",
+    "size": 24,
+    "color": "#FFFFFF",
+    "outline": "#000000",
+    "box": "#000000",
+    "outline_width": 3,
+    "border_style": 3,
+    "margin_v": 60,
+    "bold": true
+  }
+}
