@@ -174,6 +174,7 @@ font, and use `"theme": "mybrand"`.
 | `resolution` | `[1920, 1080]` for YouTube, `[1080, 1920]` for Shorts/Reels/TikTok |
 | `intro` / `outro` | Optional. Delete them if you don't want title cards |
 | `start` / `end` | Optional. Seconds to keep from that clip |
+| `clean_audio` | Optional, default `true`: light noise clean-up for raw recordings. Use `false` for narration that is already processed |
 | `music.mood` | Picks the first track in your library with that mood tag… |
 | `music.track` | …or name a file exactly, e.g. `"track": "calm-lofi.mp3"` |
 | `music.volume` | 0.0–1.0. Around 0.2–0.3 sits nicely under speech |
@@ -308,7 +309,7 @@ Record yourself once on your phone. Read some of the script lines, or just talk 
 3. Writes `01.wav`, `01.json`, … with caption timings snapped to your real pauses.
 
 ```bash
-pip install sherpa-onnx numpy soundfile
+pip install sherpa-onnx numpy soundfile noisereduce
 python3 generators/nqueens.py --n 6 --out projects/nqueens/clips/nqueens.mp4 --script-only
 python3 scripts/clone_voiceover.py projects/nqueens/clips/nqueens.script.txt projects/nqueens/voice \
   --reference my-voice.m4a
@@ -319,6 +320,18 @@ python3 vedit.py build projects/nqueens/project.json
 The first run downloads about 1.6 GB of models into `models/`. After that everything runs offline
 on your CPU (about 4 minutes for 6 cloned lines). `--clone-all` clones every line, even ones you
 recorded, for a perfectly even sound. `--speed 0.95` slows the cloned lines a little.
+
+**Clear-sounding voice.** Every line, real or cloned, goes through the same clean-up:
+
+- your room's background noise is measured in the pauses of your recording and removed;
+- rumble is cut, and the boomy 300 Hz range is turned down;
+- consonants (3.2 kHz) and "air" (7 kHz) are turned up;
+- "s" sounds are softened and the level is evened out;
+- a gentle gate keeps the gaps between words quiet.
+
+Caption times follow the real pauses in each finished line. The untouched takes are saved in
+`voice/raw/`, so you can change the clean-up and re-apply it without cloning again
+(`--polish-only`).
 
 Tips: a quiet room gives the best clone. Reading a few script lines in the tone you want (curious,
 excited, calm) helps a lot, because the clone copies the delivery of its sample. Only clone a voice

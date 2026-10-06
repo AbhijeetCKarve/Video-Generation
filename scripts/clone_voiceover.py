@@ -12,7 +12,7 @@ Give it a recording of yourself (phone voice memo is fine). It:
   3. polishes every line the same way and writes 01.wav, 01.json, ... that
      generators/nqueens.py --voice picks up.
 
-    pip install sherpa-onnx numpy soundfile
+    pip install sherpa-onnx numpy soundfile noisereduce
     python3 scripts/clone_voiceover.py projects/nqueens/clips/nqueens.script.txt projects/nqueens/voice \\
         --reference my-voice.m4a
 
@@ -36,7 +36,7 @@ import soundfile as sf
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-from ai_voiceover import POLISH, parse_script  # noqa: E402
+from ai_voiceover import DENOISE, POLISH, parse_script  # noqa: E402
 
 MODELS = ROOT / "models"
 REL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
@@ -126,12 +126,13 @@ class Models:
 # ---------------------------------------------------------------- analysis
 
 def speech_segments(y, sr, min_gap=0.35, pad=0.12):
-    """Split a recording at its pauses -> [(start_s, end_s)]. The silence level
-    adapts to the recording: 6 dB above its own background noise."""
+    """Split a recording at its pauses -> [(start_s, end_s)]. The silence level adapts
+    to the recording: 6 dB above its background noise, but never more than 30 dB
+    below the speech (in cleaned audio the pauses are almost digital silence)."""
     hop = int(sr * 0.02)
     frames = y[:len(y) // hop * hop].reshape(-1, hop)
     db = 20 * np.log10(np.sqrt((frames ** 2).mean(1)) + 1e-9)
-    voiced = db > np.percentile(db, 10) + 6
+    voiced = db > max(np.percentile(db, 10) + 6, np.percentile(db, 90) - 30)
     segs, start, gap = [], None, 0
     for i, v in enumerate(list(voiced) + [False] * int(min_gap / 0.02 + 1)):
         if v:
@@ -206,16 +207,37 @@ def phrase_times(phrases, cuts, total):
     return out
 
 
-def polish(y, sr, tmp, name, denoise):
+def level(y, db=-20):
+    speech = y[np.abs(y) > 0.01 * np.abs(y).max()]
+    return y * 10 ** (db / 20) / max(np.sqrt(np.mean(speech ** 2)) if speech.size else 1.0, 1e-6)
+
+
+def pause_cuts(y, sr):
+    """Middle of every pause in finished audio: where one caption should hand over to the next."""
+    segs = speech_segments(resample(y, sr, 16000), 16000, min_gap=0.2, pad=0.0)
+    return [(b1 + a2) / 2 for (_, b1), (a2, _) in zip(segs, segs[1:])]
+
+
+def polish(y, sr, tmp, name, noise=None):
+    """Denoise + clear-speech chain. With a noise profile (your room's own background
+    sound, taken from the pauses in your recording) the noise is removed by spectral
+    gating; cloned lines get the same treatment because cloning copies the room sound.
+    Levelled first so the gate threshold means the same for every line."""
     src, dst = Path(tmp) / f"{name}_i.wav", Path(tmp) / f"{name}_o.wav"
-    sf.write(src, y, sr)
-    chain = ("afftdn=nf=-30," if denoise else "") + POLISH
+    chain = POLISH
+    if noise is not None and len(noise) > sr // 2:
+        import noisereduce
+        y = noisereduce.reduce_noise(y=y, sr=sr, y_noise=noise, stationary=True, prop_decrease=0.9)
+    else:
+        chain = DENOISE + POLISH
+    sf.write(src, np.clip(level(y), -1, 1), sr)
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-af", chain, "-ar", str(SR), "-ac", "1",
                     str(dst)], check=True)
     out, _ = sf.read(dst, dtype="float32")
-    speech = out[np.abs(out) > 0.01]
-    out *= 10 ** (-20 / 20) / max(np.sqrt(np.mean(speech ** 2)) if speech.size else 1.0, 1e-6)
-    return np.clip(out, -0.97, 0.97)
+    loud = np.flatnonzero(np.abs(out) > 0.02 * np.abs(out).max())   # trim silent ends so captions line up
+    if loud.size:
+        out = out[max(0, loud[0] - int(0.03 * SR)):loud[-1] + int(0.08 * SR)]
+    return np.clip(level(out), -0.97, 0.97)
 
 
 # ---------------------------------------------------------------- main
@@ -228,7 +250,27 @@ def main():
     ap.add_argument("--clone-all", action="store_true", help="clone every line, even ones you read yourself")
     ap.add_argument("--speed", type=float, default=1.0, help="pace of cloned lines (default 1.0 = like you)")
     ap.add_argument("--steps", type=int, default=8, help="cloning quality steps (more = slower, smoother)")
+    ap.add_argument("--polish-only", action="store_true",
+                    help="re-apply the clean-up to the saved raw takes (outdir/raw) without re-cloning")
     args = ap.parse_args()
+
+    if args.polish_only:
+        outdir = Path(args.outdir)
+        with tempfile.TemporaryDirectory() as tmp:
+            noise_file = outdir / "raw" / "noise.wav"
+            noise = sf.read(noise_file, dtype="float32")[0] if noise_file.exists() else None
+            phrases = {num: ph for num, _, ph in parse_script(args.script)}
+            for raw in sorted((outdir / "raw").glob("[0-9]*.wav")):
+                y, sr = sf.read(raw, dtype="float32")
+                y = polish(y, sr, tmp, raw.stem, noise)
+                sf.write(outdir / raw.name, y, SR)
+                meta_file = outdir / f"{raw.stem}.json"
+                if meta_file.exists() and raw.stem in phrases:     # captions follow the new pauses
+                    meta = json.loads(meta_file.read_text())
+                    meta["phrases"] = phrase_times(phrases[raw.stem], pause_cuts(y, SR), len(y) / SR)
+                    meta_file.write_text(json.dumps(meta, indent=1))
+                print(f"[{raw.stem}] re-polished")
+        return
 
     ensure_models()
     m = Models()
@@ -237,17 +279,29 @@ def main():
     outdir.mkdir(parents=True, exist_ok=True)
 
     # 1. transcribe the reference recording(s), phrase by phrase
-    segs = []
+    segs, noise = [], []
+    fade = np.linspace(0, 1, int(0.015 * SR), dtype="float32")
     for path in args.reference:
         y48 = load(path, SR)
         # find pauses on a 16 kHz copy: phone recordings carry hiss above 8 kHz that hides them
-        for a, b in speech_segments(resample(y48, SR, 16000), 16000):
-            piece = y48[int(a * SR):int(b * SR)]
+        found = speech_segments(resample(y48, SR, 16000), 16000)
+        for (_, b1), (a2, _) in zip(found, found[1:]):     # the pauses = your room's background sound
+            if a2 - b1 > 0.3:
+                noise.append(y48[int((b1 + 0.08) * SR):int((a2 - 0.08) * SR)])
+        for a, b in found:
+            piece = y48[int(a * SR):int(b * SR)].copy()
+            piece[:len(fade)] *= fade                       # soft edges: no clicks where phrases join
+            piece[-len(fade):] *= fade[::-1]
             text = m.transcribe(resample(piece, SR, 16000))
             if len(words(text)) >= 2:                    # drop clicks, beeps and stray noises
                 segs.append({"audio": piece, "text": text, "start": a, "end": b})
     if not segs:
         sys.exit("No speech found in the reference recording.")
+    noise = np.concatenate(noise) if noise else None
+    if noise is not None:
+        (outdir / "raw").mkdir(parents=True, exist_ok=True)
+        sf.write(outdir / "raw" / "noise.wav", noise, SR)
+        print(f"Learned your room's background sound from {len(noise) / SR:.1f}s of pauses")
     print(f"Heard {len(segs)} phrases ({sum(s['end'] - s['start'] for s in segs):.0f}s of speech):")
     for s in segs:
         print(f"   {s['text']}")
@@ -287,8 +341,9 @@ def main():
             text = " ".join(phrases)
             if num in own and not args.clone_all:
                 o = own[num]
-                y = polish(o["audio"], SR, tmp, num, denoise=True)
-                timings = phrase_times(phrases, o["cuts"], len(y) / SR)
+                raw = o["audio"]
+                y = polish(raw, SR, tmp, num, noise)
+                timings = phrase_times(phrases, pause_cuts(y, SR), len(y) / SR)
                 kind = "your recording"
             else:
                 # 3. clone: try every prompt, keep the take most like you, clear, and lively when it should be
@@ -305,9 +360,12 @@ def main():
                     if best is None or score > best[0]:
                         best = (score, y24, rate, pid, sim, clear, life)
                 _, y24, rate, pid, sim, clear, life = best
-                y = polish(resample(y24, rate, SR), SR, tmp, num, denoise=False)
-                timings = phrase_times(phrases, [], len(y) / SR)
+                raw = resample(y24, rate, SR)
+                y = polish(raw, SR, tmp, num, noise)
+                timings = phrase_times(phrases, pause_cuts(y, SR), len(y) / SR)
                 kind = f"cloned (sample {pid}, like you {sim:.2f}, clear {clear:.0%}, pitch {life:.1f} st)"
+            (outdir / "raw").mkdir(exist_ok=True)
+            sf.write(outdir / "raw" / f"{num}.wav", raw, SR)      # unprocessed take, for --polish-only
             sf.write(outdir / f"{num}.wav", y, SR)
             (outdir / f"{num}.json").write_text(json.dumps({"mood": mood, "phrases": timings}, indent=1))
             print(f"[{num}] {mood:8} {len(y) / SR:4.1f}s  {kind}")

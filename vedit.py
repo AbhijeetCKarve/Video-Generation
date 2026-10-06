@@ -161,8 +161,10 @@ def render_clip(clip, theme, size, fps, base, out, tmp, verbose):
                "setpts=PTS-STARTPTS"]
 
     if has_audio(src):
-        # gentle voice clean-up for screen recordings
-        af = "highpass=f=80,afftdn=nf=-25,acompressor=threshold=-18dB:ratio=3:attack=5:release=100"
+        # gentle voice clean-up for raw screen recordings; "clean_audio": false for narration
+        # that is already processed (running it twice makes speech sound watery)
+        af = ("highpass=f=80,afftdn=nf=-25,acompressor=threshold=-18dB:ratio=3:attack=5:release=100"
+              if clip.get("clean_audio", True) else "anull")
         cmd += ["-vf", ",".join(vf), "-af", af]
     else:
         cmd += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
@@ -194,12 +196,14 @@ def mix_music(video, music_path, cfg, theme, out, verbose):
     dur = probe_duration(video)
     vol = cfg.get("volume", theme.get("music_volume", 0.25))
     fade = cfg.get("fade", 2)
+    # dip the music where speech is most intelligible (consonants ~2-4 kHz) so words cut through
     music_chain = (f"[1:a]volume={vol},atrim=0:{dur},"
+                   "equalizer=f=2500:t=q:w=1.5:g=-5,equalizer=f=400:t=q:w=1:g=-2,"
                    f"afade=t=in:st=0:d={fade},afade=t=out:st={max(0, dur - fade)}:d={fade},"
                    f"aformat=sample_rates=48000:channel_layouts=stereo[m]")
     if cfg.get("duck", True):
         graph = (music_chain + ";[0:a]asplit=2[voice][key];"
-                 "[m][key]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=400[ducked];"
+                 "[m][key]sidechaincompress=threshold=0.02:ratio=10:attack=15:release=600[ducked];"
                  "[voice][ducked]amix=inputs=2:duration=first:normalize=0,")
     else:
         graph = music_chain + ";[0:a][m]amix=inputs=2:duration=first:normalize=0,"

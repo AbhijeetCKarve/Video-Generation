@@ -4,9 +4,9 @@
   "fps": 30,
   "intro": {"title": "The N-Queens Problem", "subtitle": "Solved step by step with backtracking", "duration": 3},
   "clips": [
-    {"file": "clips/nqueens.mp4", "captions": "clips/nqueens.srt"}
+    {"file": "clips/nqueens.mp4", "captions": "clips/nqueens.srt", "clean_audio": false}
   ],
   "outro": {"title": "Thanks for watching", "subtitle": "Try it yourself with N = 8", "duration": 3},
-  "music": {"mood": "focus", "volume": 0.2, "duck": true},
+  "music": {"mood": "focus", "volume": 0.16, "duck": true},
   "output": "output/nqueens-final.mp4"
 }

@@ -45,8 +45,14 @@ MOODS = {
     "emphatic": dict(speed=0.90, pitch=-0.2, gain=1.0),
 }
 PAUSE = {".": 0.38, "?": 0.5, "!": 0.42}    # silence after a sentence, by its last mark
-POLISH = ("highpass=f=70,lowshelf=f=160:g=2.5,equalizer=f=2800:t=q:w=1.2:g=1.5,"
-          "deesser=i=0.3,acompressor=threshold=-20dB:ratio=2.5:attack=10:release=150")
+# Clear-speech chain: steep rumble cut, less boom (300 Hz), more consonant
+# definition (3.2 kHz) and air (7 kHz), soft "s", even level, and a gentle
+# gate that lowers leftover noise between words by 20 dB.
+POLISH = ("highpass=f=90:poles=2,highpass=f=90:poles=2,"
+          "equalizer=f=300:t=q:w=1.0:g=-4,equalizer=f=3200:t=q:w=1.2:g=4,highshelf=f=7000:g=2,"
+          "deesser=i=0.4,acompressor=threshold=-22dB:ratio=3:attack=5:release=120:makeup=2,"
+          "agate=threshold=0.015:ratio=4:range=0.1:attack=5:release=200")
+DENOISE = "afftdn=nr=20:nf=-40:tn=1,"
 SR = 48000
 
 
