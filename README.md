@@ -168,7 +168,50 @@ themes/*.json         look & feel presets
 music/                your downloaded tracks + catalog.json (MP3s are git-ignored)
 projects/<name>/      one folder per video: project.json, clips/, output/
 scripts/make_demo.sh  generates fake inputs and builds a test video
+generators/           scripts that *create* animated clips (instead of recording them in Tella)
 ```
+
+---
+
+## Animated explainer: N-Queens
+
+Not every video starts as a Tella recording. `generators/nqueens.py` **draws** an animated
+explainer of the N-Queens puzzle (solved with backtracking) and writes a matching captions file.
+vedit then adds the title cards, captions and music just like for any other clip. It needs Pillow (`pip install pillow`).
+
+```bash
+# 1. Generate the animation (MP4 + SRT captions) — takes about a minute
+python3 generators/nqueens.py --n 6 --out projects/nqueens/clips/nqueens.mp4
+
+# 2. Add a calm background track tagged "focus" (download one from Pixabay / Mixkit / Thematic)
+python3 vedit.py music add ~/Downloads/lofi-study.mp3 --source pixabay --mood focus \
+  --url "https://pixabay.com/music/..." --license "Pixabay Content License"
+
+# 3. Build the finished video
+python3 vedit.py build projects/nqueens/project.json
+#    → projects/nqueens/output/nqueens-final.mp4
+```
+
+What the viewer sees (about 1 min 50 s for N = 6):
+
+1. **The puzzle**: an empty board and the goal.
+2. **The rules**: one queen with every square it attacks shaded red.
+3. **The strategy**: go row by row, skip attacked squares, back up when stuck.
+4. **The search**: every step of the real algorithm. A red line shows *which* queen attacks a
+   square. Green means a queen was placed, orange means backtracking. The side panel shows the
+   `queens[row] = column` array and running counts. The first steps are slow, then it speeds up.
+5. **Solved!** The final board and how many steps it took.
+6. **How many solutions?** A table of solution counts for N = 1–10.
+
+| Option | Meaning |
+|---|---|
+| `--n 8` | Board size (1–12). Steps until the first solution: N=4 → 30, N=5 → 15, N=6 → 196, N=7 → 44, N=8 → 981 (≈ 4.5 min, so add `--speed 2`) |
+| `--speed 1.5` | Make the whole animation 1.5× faster (use `0.8` for slower) |
+| `--theme bold` | Use another theme's colours and fonts (match the one in `project.json`) |
+
+Change the titles in `projects/nqueens/project.json`. Delete the `"music"` block for no music. To
+add **narration**, record a voice-over while watching the clip (Tella works for this too) and
+replace the clip's audio. You can also record yourself in Tella, export it, and list it as a second clip after the animation.
 
 ## Troubleshooting
 

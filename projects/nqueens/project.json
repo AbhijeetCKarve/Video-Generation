@@ -1,0 +1,12 @@
+{
+  "theme": "clean",
+  "resolution": [1920, 1080],
+  "fps": 30,
+  "intro": {"title": "The N-Queens Problem", "subtitle": "Solved step by step with backtracking", "duration": 3},
+  "clips": [
+    {"file": "clips/nqueens.mp4", "captions": "clips/nqueens.srt"}
+  ],
+  "outro": {"title": "Thanks for watching", "subtitle": "Try it yourself with N = 8", "duration": 3},
+  "music": {"mood": "focus", "volume": 0.2, "duck": false},
+  "output": "output/nqueens-final.mp4"
+}

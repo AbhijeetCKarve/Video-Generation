@@ -1,0 +1,326 @@
+#!/usr/bin/env python3
+"""Animated explainer for the N-Queens problem (backtracking).
+
+Produces a silent MP4 plus an .srt of captions, ready to be used as a clip
+in a vedit project:
+
+    python3 generators/nqueens.py --n 6 --out projects/nqueens/clips/nqueens.mp4
+    python3 vedit.py build projects/nqueens/project.json
+"""
+import argparse
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from vedit import find_font, load_theme  # noqa: E402
+
+W, H = 1920, 1080
+LIGHT, DARK = "#E2E8F0", "#94A3B8"
+RED, GREEN, ORANGE = "#EF4444", "#22C55E", "#F59E0B"
+QUEEN = "♛"
+# number of solutions for N = 1..12 (OEIS A000170)
+SOLUTION_COUNTS = [1, 0, 0, 2, 10, 4, 40, 92, 352, 724, 2680, 14200]
+
+
+# ---------------------------------------------------------------- algorithm
+
+def attackers(queens, row, col):
+    """Queens already placed (one per row, queens[r] = column) that attack (row, col)."""
+    out = []
+    for r, c in enumerate(queens):
+        if c == col:
+            out.append((r, c, "same column"))
+        elif abs(c - col) == row - r:
+            out.append((r, c, "same diagonal"))
+    return out
+
+
+def trace(n):
+    """Run backtracking until the first solution, recording every step."""
+    events, queens = [], []
+
+    def solve(row):
+        if row == n:
+            return True
+        for col in range(n):
+            att = attackers(queens, row, col)
+            if att:
+                events.append({"kind": "conflict", "row": row, "col": col,
+                               "queens": list(queens), "att": att})
+                continue
+            queens.append(col)
+            events.append({"kind": "place", "row": row, "col": col, "queens": list(queens)})
+            if solve(row + 1):
+                return True
+            queens.pop()
+            events.append({"kind": "backtrack", "row": row, "col": col, "queens": list(queens)})
+        return False
+
+    solved = solve(0)
+    return events, (list(queens) if solved else None)
+
+
+# ---------------------------------------------------------------- drawing
+
+class Painter:
+    def __init__(self, n, theme):
+        self.n, self.t = n, theme
+        self.board = 640
+        self.cell = self.board // n
+        self.board = self.cell * n
+        self.x0, self.y0 = 170, 70 + (640 - self.board) // 2
+        text_font = find_font(theme["font"])
+        self.f = {s: ImageFont.truetype(text_font, s) for s in (26, 30, 36, 44, 60)}
+        self.queen_font = ImageFont.truetype(find_font("DejaVu Sans"), int(self.cell * 0.72))
+
+    def center(self, r, c):
+        return self.x0 + c * self.cell + self.cell // 2, self.y0 + r * self.cell + self.cell // 2
+
+    def cell_box(self, r, c):
+        x, y = self.x0 + c * self.cell, self.y0 + r * self.cell
+        return [x, y, x + self.cell, y + self.cell]
+
+    def frame(self, queens=(), tint=None, ghost=None, lines=(), label="", message="",
+              current_row=None, stats=None, panel=None):
+        """tint: {(r, c): color}, ghost: (r, c, color), lines: [((r,c),(r,c),color)]."""
+        img = Image.new("RGB", (W, H), self.t["background"])
+        d = ImageDraw.Draw(img)
+        n, cell = self.n, self.cell
+
+        for r in range(n):
+            for c in range(n):
+                d.rectangle(self.cell_box(r, c), fill=LIGHT if (r + c) % 2 == 0 else DARK)
+            d.text((self.x0 - 30, self.y0 + r * cell + cell // 2), str(r + 1),
+                   font=self.f[26], fill=self.t["muted"], anchor="mm")
+        for c in range(n):
+            d.text((self.x0 + c * cell + cell // 2, self.y0 - 26), str(c + 1),
+                   font=self.f[26], fill=self.t["muted"], anchor="mm")
+
+        if tint:
+            overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            od = ImageDraw.Draw(overlay)
+            for (r, c), color in tint.items():
+                od.rectangle(self.cell_box(r, c), fill=color + "99")
+            img.paste(overlay, (0, 0), overlay)
+            d = ImageDraw.Draw(img)
+
+        if current_row is not None and current_row < n:
+            y = self.y0 + current_row * cell
+            d.rectangle([self.x0 - 4, y - 4, self.x0 + self.board + 4, y + cell + 4],
+                        outline=self.t["accent"], width=5)
+
+        for (r1, c1), (r2, c2), color in lines:
+            d.line([self.center(r1, c1), self.center(r2, c2)], fill=color, width=7)
+
+        for r, c in enumerate(queens):
+            d.text(self.center(r, c), QUEEN, font=self.queen_font, fill="#111827",
+                   anchor="mm", stroke_width=2, stroke_fill="#FFFFFF")
+        if ghost:
+            r, c, color = ghost
+            d.text(self.center(r, c), QUEEN, font=self.queen_font, fill=color,
+                   anchor="mm", stroke_width=2, stroke_fill="#111827")
+
+        self.draw_panel(d, label, message, queens, current_row, stats, panel)
+        return img
+
+    def wrap(self, d, text, font, width):
+        lines = []
+        for para in text.split("\n"):
+            line = ""
+            for word in para.split():
+                trial = (line + " " + word).strip()
+                if d.textlength(trial, font=font) <= width:
+                    line = trial
+                else:
+                    lines.append(line)
+                    line = word
+            lines.append(line)
+        return lines
+
+    def draw_panel(self, d, label, message, queens, current_row, stats, panel):
+        x, width, t = 920, 880, self.t
+        d.text((x, 60), f"N-Queens  ·  N = {self.n}", font=self.f[60], fill=t["text"])
+        d.text((x, 150), label.upper(), font=self.f[30], fill=t["accent"])
+        y = 195
+        for line in self.wrap(d, message, self.f[36], width)[:4]:
+            d.text((x, y), line, font=self.f[36], fill=t["text"])
+            y += 48
+
+        if panel == "summary":
+            self.draw_summary(d, x)
+            return
+        if panel == "intro":
+            return
+
+        y = 410
+        d.text((x, y), "queens[row] = column", font=self.f[26], fill=t["muted"])
+        box = min(70, (width - 10 * (self.n - 1)) // self.n)
+        for r in range(self.n):
+            bx, by = x + r * (box + 10), y + 45
+            active = r == current_row
+            d.rectangle([bx, by, bx + box, by + box], outline=t["accent"] if active else t["muted"],
+                        width=4 if active else 2)
+            val = str(queens[r] + 1) if r < len(queens) else "·"
+            d.text((bx + box / 2, by + box / 2), val, font=self.f[36], fill=t["text"], anchor="mm")
+
+        if stats:
+            d.text((x, 560), f"Placed: {stats['place']}    Conflicts: {stats['conflict']}"
+                             f"    Backtracks: {stats['backtrack']}", font=self.f[30], fill=t["text"])
+        lx = x
+        for color, name in ((GREEN, "safe → place queen"), (RED, "attacked → skip"),
+                            (ORANGE, "dead end → backtrack")):
+            d.rectangle([lx, 625, lx + 24, 649], fill=color)
+            d.text((lx + 34, 622), name, font=self.f[26], fill=t["muted"])
+            lx += 46 + d.textlength(name, font=self.f[26])
+
+    def draw_summary(self, d, x):
+        t = self.t
+        d.text((x, 440), "N", font=self.f[30], fill=t["muted"])
+        d.text((x, 490), "solutions", font=self.f[30], fill=t["muted"])
+        for i, count in enumerate(SOLUTION_COUNTS[:10]):
+            cx = x + 190 + i * 62
+            hi = i + 1 == self.n
+            d.text((cx, 455), str(i + 1), font=self.f[30], fill=t["accent"] if hi else t["text"], anchor="mm")
+            d.text((cx, 505), str(count), font=self.f[26], fill=t["accent"] if hi else t["text"], anchor="mm")
+
+
+# ---------------------------------------------------------------- script
+
+def attack_zone(n, r, c):
+    return {(rr, cc): RED for rr in range(n) for cc in range(n)
+            if (rr, cc) != (r, c) and (rr == r or cc == c or abs(rr - r) == abs(cc - c))}
+
+
+def build_scenes(n, p, speed):
+    """Return [(image, seconds)] and [(start, end, caption)]."""
+    scenes, captions, clock = [], [], 0.0
+
+    def add(img, secs, caption=None):
+        nonlocal clock
+        if caption:
+            captions.append([clock, clock + max(secs, 3.5), caption])
+        scenes.append((img, secs))
+        clock += secs
+
+    mid = n // 2
+    add(p.frame(label="The puzzle", panel="intro",
+                message=f"Place {n} queens on a {n}×{n} chessboard so that no two queens attack each other."),
+        5 / speed, f"The N-Queens puzzle: place {n} queens so none can attack another.")
+    add(p.frame(queens=[], ghost=(mid, mid, "#111827"), tint=attack_zone(n, mid, mid), label="The rules",
+                panel="intro", message="A queen attacks every square in its row, its column and both diagonals."),
+        5 / speed, "A queen attacks along its row, its column and both diagonals.")
+    add(p.frame(label="The strategy: backtracking", panel="intro",
+                message="Go row by row. Try each column left to right. Skip attacked squares. "
+                        "If a row has no safe square, go back and move the previous queen."),
+        7 / speed, "Strategy: go row by row, and back up whenever we get stuck. That's backtracking.")
+
+    events, solution = trace(n)
+    stats = {"place": 0, "conflict": 0, "backtrack": 0}
+    first = set()
+    for i, e in enumerate(events):
+        stats[e["kind"]] += 1
+        r, c, q = e["row"], e["col"], e["queens"]
+        caption = None
+        if e["kind"] == "conflict":
+            ar, ac, why = e["att"][0]
+            img = p.frame(queens=q, ghost=(r, c, RED), tint={(r, c): RED},
+                          lines=[((ar, ac), (r, c), RED)], current_row=r, stats=stats,
+                          label=f"Step {i + 1} · conflict",
+                          message=f"Row {r + 1}, column {c + 1} is attacked by the queen in "
+                                  f"row {ar + 1} ({why}). Skip it.")
+            if "conflict" not in first:
+                caption = "Red means attacked: that square shares a column or diagonal with a queen."
+        elif e["kind"] == "place":
+            img = p.frame(queens=q, tint={(r, c): GREEN}, current_row=r, stats=stats,
+                          label=f"Step {i + 1} · place",
+                          message=f"Row {r + 1}, column {c + 1} is safe. Place a queen and move to row {r + 2}.")
+            if "place" not in first:
+                caption = "Green means safe, so we place a queen and move to the next row."
+        else:
+            img = p.frame(queens=q, ghost=(r, c, ORANGE), tint={(r, c): ORANGE}, current_row=r, stats=stats,
+                          label=f"Step {i + 1} · backtrack",
+                          message=f"Row {r + 2} has no safe square left. Go back: remove the queen "
+                                  f"from row {r + 1} and try the next column.")
+            if "backtrack" not in first:
+                caption = "Dead end! No safe square left in the next row, so we backtrack."
+        first.add(e["kind"])
+        # first steps are slow enough to follow, then the search speeds up
+        secs = max(0.25, 1.8 * 0.88 ** max(0, i - 8)) / speed
+        if caption and secs < 2.5 / speed:
+            secs = 2.5 / speed
+        add(img, secs, caption)
+        if i == 12:
+            captions.append([clock, clock + 3.5, "From here the search speeds up. Watch it try, skip, place and backtrack."])
+
+    if solution is not None:
+        add(p.frame(queens=solution, tint={(r, c): GREEN for r, c in enumerate(solution)}, stats=stats,
+                    label="Solved!",
+                    message=f"All {n} queens are placed and none attack each other. "
+                            f"Found after {len(events)} steps and {stats['backtrack']} backtracks."),
+            6 / speed, "Solved! Every row has one queen, and no two queens attack each other.")
+    else:
+        add(p.frame(stats=stats, label="No solution",
+                    message=f"Every option was tried. There is no way to place {n} queens."),
+            6 / speed, f"Every option failed: {n} queens can't be placed on a {n}×{n} board.")
+
+    add(p.frame(queens=solution or [], label="How many solutions?", panel="summary",
+                message=f"N = {n} has {SOLUTION_COUNTS[n - 1]} solutions in total. The number explodes as N grows, "
+                        "but backtracking prunes bad paths early."),
+        7 / speed, "Backtracking throws away bad partial boards early, so it never checks every arrangement.")
+
+    for k in range(len(captions) - 1):           # captions must not overlap
+        captions[k][1] = min(captions[k][1], captions[k + 1][0] - 0.05)
+    return scenes, captions
+
+
+def srt_time(s):
+    ms = int(round(s * 1000))
+    return f"{ms // 3600000:02}:{ms // 60000 % 60:02}:{ms // 1000 % 60:02},{ms % 1000:03}"
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--n", type=int, default=6, help="board size, 4-10 works best (default 6)")
+    ap.add_argument("--theme", default="clean")
+    ap.add_argument("--speed", type=float, default=1.0, help=">1 = faster video, <1 = slower")
+    ap.add_argument("--fps", type=int, default=30)
+    ap.add_argument("--out", required=True, help="output .mp4 (an .srt is written next to it)")
+    args = ap.parse_args()
+    if not 1 <= args.n <= 12:
+        sys.exit("--n must be between 1 and 12")
+
+    out = Path(args.out).resolve()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    painter = Painter(args.n, load_theme(args.theme))
+    scenes, captions = build_scenes(args.n, painter, args.speed)
+    total = sum(s for _, s in scenes)
+    print(f"{len(scenes)} frames, {total:.1f}s of video")
+
+    with tempfile.TemporaryDirectory(prefix="nqueens_") as tmp:
+        lines = []
+        for i, (img, secs) in enumerate(scenes):
+            f = Path(tmp) / f"f{i:05d}.png"
+            img.save(f)
+            lines.append(f"file '{f}'\nduration {secs:.3f}\n")
+        lines.append(f"file '{f}'\n")                 # concat demuxer needs the last file twice
+        (Path(tmp) / "list.txt").write_text("".join(lines))
+        res = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+                              "-i", str(Path(tmp) / "list.txt"), "-vf", f"fps={args.fps},format=yuv420p",
+                              "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+                              "-t", f"{total:.3f}", str(out)], capture_output=True, text=True)
+        if res.returncode:
+            sys.exit(res.stderr)
+
+    srt = out.with_suffix(".srt")
+    srt.write_text("\n".join(f"{i + 1}\n{srt_time(a)} --> {srt_time(b)}\n{text}\n"
+                             for i, (a, b, text) in enumerate(captions)))
+    print(f"Wrote {out}\nWrote {srt}")
+
+
+if __name__ == "__main__":
+    main()
