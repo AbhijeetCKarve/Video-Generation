@@ -11,6 +11,8 @@ lines are placed on the timeline and frames are held so nothing overlaps:
     python3 vedit.py build projects/nqueens/project.json
 """
 import argparse
+import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -26,6 +28,8 @@ W, H = 1920, 1080
 LIGHT, DARK = "#E2E8F0", "#94A3B8"
 RED, GREEN, ORANGE = "#EF4444", "#22C55E", "#F59E0B"
 QUEEN = "♛"
+WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+         "eleven", "twelve"]
 # number of solutions for N = 1..12 (OEIS A000170)
 SOLUTION_COUNTS = [1, 0, 0, 2, 10, 4, 40, 92, 352, 724, 2680, 14200]
 
@@ -201,28 +205,37 @@ def attack_zone(n, r, c):
 
 def build_scenes(n, p, speed, frame_dir):
     """Draw every frame to frame_dir. Returns scenes [[png, seconds]] and the
-    narration [(scene_index, text)]: each line starts when its scene appears."""
-    scenes, narration = [], []
+    narration [(scene_index, text, hold)]: each line starts when its scene appears.
 
-    def add(img, secs, line=None):
+    Narration text is annotated for the voice-over: "{mood}" sets the delivery
+    (see scripts/ai_voiceover.py) and "|" separates phrases, which also become
+    separate captions. hold=True freezes the line's own frame if the voice runs
+    long; hold=False slows the following steps down instead."""
+    scenes, narration = [], []
+    nw = WORDS[n]
+
+    def add(img, secs, line=None, hold=True):
         path = frame_dir / f"f{len(scenes):05d}.png"
         if img is not None:
             img.save(path)
         if line:
-            narration.append((len(scenes), line))
+            narration.append((len(scenes), line, hold))
         scenes.append([path, secs])
 
     mid = n // 2
     add(p.frame(label="The puzzle", panel="intro",
                 message=f"Place {n} queens on a {n}\u00d7{n} chessboard so that no two queens attack each other."),
-        5 / speed, f"The N-Queens puzzle: place {n} queens so none can attack another.")
+        5 / speed, f"{{curious}} Here's a classic puzzle. | Can you place {nw} queens on a {nw}-by-{nw} "
+                   "chessboard, | so that no two queens can attack each other?")
     add(p.frame(queens=[], ghost=(mid, mid, "#111827"), tint=attack_zone(n, mid, mid), label="The rules",
                 panel="intro", message="A queen attacks every square in its row, its column and both diagonals."),
-        5 / speed, "A queen attacks along its row, its column and both diagonals.")
+        5 / speed, "{explain} First, the rules. | A queen is powerful: | she attacks every square in her row, "
+                   "her column, | and both of her diagonals.")
     add(p.frame(label="The strategy: backtracking", panel="intro",
                 message="Go row by row. Try each column left to right. Skip attacked squares. "
                         "If a row has no safe square, go back and move the previous queen."),
-        7 / speed, "Strategy: go row by row, and back up whenever we get stuck. That's backtracking.")
+        7 / speed, "{explain} Our strategy is called backtracking. | We go row by row, | and whenever we "
+                   "get stuck, | we step back and try something else.")
 
     events, solution = trace(n)
     stats = {"place": 0, "conflict": 0, "backtrack": 0}
@@ -239,46 +252,54 @@ def build_scenes(n, p, speed, frame_dir):
                           message=f"Row {r + 1}, column {c + 1} is attacked by the queen in "
                                   f"row {ar + 1} ({why}). Skip it.")
             if "conflict" not in first:
-                line = "Red means attacked: that square shares a column or diagonal with a queen."
+                line = ("{emphatic} Red means danger. | This square is attacked by a queen "
+                        "that's already on the board, | so we skip it.")
         elif e["kind"] == "place":
             img = p.frame(queens=q, tint={(r, c): GREEN}, current_row=r, stats=stats,
                           label=f"Step {i + 1} \u00b7 place",
                           message=f"Row {r + 1}, column {c + 1} is safe. Place a queen and move to row {r + 2}.")
             if "place" not in first:
-                line = "Green means safe, so we place a queen and move to the next row."
+                line = "{warm} Green means safe! | So we place a queen here, | and move down to the next row."
         else:
             img = p.frame(queens=q, ghost=(r, c, ORANGE), tint={(r, c): ORANGE}, current_row=r, stats=stats,
                           label=f"Step {i + 1} \u00b7 backtrack",
                           message=f"Row {r + 2} has no safe square left. Go back: remove the queen "
                                   f"from row {r + 1} and try the next column.")
             if "backtrack" not in first:
-                line = "Dead end! No safe square left in the next row, so we backtrack."
+                line = ("{emphatic} Uh-oh, a dead end! | There's no safe square left in the next row. | "
+                        "So we backtrack: | remove the last queen, and try its next column.")
         first.add(e["kind"])
         # first steps are slow enough to follow, then the search speeds up
         secs = max(0.25, 1.8 * 0.88 ** max(0, i - 8)) / speed
+        hold = True
         if line:
             secs = max(secs, 2.5 / speed)          # linger on the first example of each colour
         elif i == 12:
-            line = "From here the search speeds up. Watch it try, skip, place and backtrack."
+            line, hold = ("{excited} Now let's speed things up! | Watch the pattern: | try, skip, place... "
+                          "| and sometimes, go back."), False
         elif i == 40:
-            line = "The boxes on the right are the program's memory: the column of the queen in each row."
-        add(img, secs, line)
+            line, hold = ("{explain} Look at the boxes on the right. | That's the program's memory: | "
+                          "for each row, the column where its queen sits."), False
+        add(img, secs, line, hold)
 
     if solution is not None:
         add(p.frame(queens=solution, tint={(r, c): GREEN for r, c in enumerate(solution)}, stats=stats,
                     label="Solved!",
                     message=f"All {n} queens are placed and none attack each other. "
                             f"Found after {len(events)} steps and {stats['backtrack']} backtracks."),
-            6 / speed, "Solved! Every row has one queen, and no two queens attack each other.")
+            6 / speed, "{excited} And... solved! | Every row has exactly one queen, | and not a single pair "
+                       "can attack each other.")
     else:
         add(p.frame(stats=stats, label="No solution",
                     message=f"Every option was tried. There is no way to place {n} queens."),
-            6 / speed, f"Every option failed: {n} queens can't be placed on a {n}\u00d7{n} board.")
+            6 / speed, f"{{explain}} We tried every option, | and none of them worked. | {nw.capitalize()} "
+                       f"queens simply can't fit on a {nw}-by-{nw} board.")
 
     add(p.frame(queens=solution or [], label="How many solutions?", panel="summary",
                 message=f"N = {n} has {SOLUTION_COUNTS[n - 1]} solutions in total. The number explodes as N grows, "
                         "but backtracking prunes bad paths early."),
-        7 / speed, "Backtracking throws away bad partial boards early, so it never checks every arrangement.")
+        7 / speed, "{warm} So, what's the big idea? | Backtracking throws away bad choices early, | "
+                   "so we never have to check every possible arrangement.")
     return scenes, narration
 
 
@@ -286,11 +307,12 @@ def build_scenes(n, p, speed, frame_dir):
 
 def load_voice(voice_dir, count, tmp):
     """Recorded lines are named 01.wav, 02.m4a, ... (number = line in the script).
-    Trims silence at both ends and returns {line_index: (wav_path, seconds)}."""
+    Trims silence at both ends and returns {line_index: (wav_path, seconds, phrase_times)};
+    phrase_times come from a matching 01.json written by scripts/ai_voiceover.py, else None."""
     trim = "silenceremove=start_periods=1:start_threshold=-45dB"
     voice = {}
     for f in sorted(Path(voice_dir).iterdir()):
-        if not f.stem.isdigit():
+        if not f.stem.isdigit() or f.suffix == ".json":
             continue
         k = int(f.stem) - 1
         if not 0 <= k < count:
@@ -302,38 +324,63 @@ def load_voice(voice_dir, count, tmp):
                               str(wav)], capture_output=True, text=True)
         if res.returncode:
             sys.exit(f"Could not read {f}:\n{res.stderr}")
-        voice[k] = (wav, probe_duration(wav))
+        timing = f.with_suffix(".json")
+        phrases = json.loads(timing.read_text())["phrases"] if timing.exists() else None
+        voice[k] = (wav, probe_duration(wav), phrases)
     missing = [f"{k + 1:02d}" for k in range(count) if k not in voice]
     if missing:
         print(f"  note: no recording for line(s) {', '.join(missing)} - those stay caption-only")
     return voice
 
 
-def fit_timeline(scenes, narration, voice, gap=0.4):
+def fit_timeline(scenes, narration, voice, gap=0.6):
     """Hold a frame longer wherever a recorded line would run into the next one.
     Returns the start time of every narration line and the total length."""
-    for k, (idx, _) in enumerate(narration):
+    for k, (idx, _, hold) in enumerate(narration):
         if k not in voice:
             continue
         nxt = narration[k + 1][0] if k + 1 < len(narration) else len(scenes)
         window = sum(secs for _, secs in scenes[idx:nxt])
         need = voice[k][1] + gap
         if window < need:
-            scenes[idx][1] += need - window
+            if hold:
+                scenes[idx][1] += need - window
+            else:
+                for sc in scenes[idx:nxt]:
+                    sc[1] *= need / window
     starts, clock = {}, 0.0
     for i, (_, secs) in enumerate(scenes):
         starts[i] = clock
         clock += secs
-    return [starts[idx] for idx, _ in narration], clock
+    return [starts[idx] for idx, _, _ in narration], clock
+
+
+def phrases_of(text):
+    """'{mood} a | b' -> ['a', 'b']: annotations are for the voice, not the captions."""
+    return [ph.strip() for ph in re.sub(r"\{[^}]*\}", "", text).split("|") if ph.strip()]
 
 
 def make_captions(narration, line_starts, voice, total):
+    """One caption per phrase, timed to the voice when there is one."""
     caps = []
-    for k, (_, text) in enumerate(narration):
+    for k, (_, text, _) in enumerate(narration):
+        phrases = phrases_of(text)
         start = line_starts[k]
-        end = start + max(3.5, voice[k][1] + 0.3 if k in voice else 0)
         limit = line_starts[k + 1] - 0.05 if k + 1 < len(narration) else total
-        caps.append((start, min(end, limit), text))
+        timed = voice[k][2] if k in voice else None
+        if timed and len(timed) == len(phrases):
+            spans = [(start + t["start"], start + t["end"]) for t in timed]
+        else:                                  # spread phrases by length over the line
+            span = voice[k][1] if k in voice else max(3.5, 0.065 * sum(map(len, phrases)))
+            chars, clock, spans = sum(map(len, phrases)), start, []
+            for ph in phrases:
+                spans.append((clock, clock + span * len(ph) / chars))
+                clock = spans[-1][1]
+        for j, (ph, (a, b)) in enumerate(zip(phrases, spans)):
+            # keep each caption up until the next one appears
+            b = spans[j + 1][0] if j + 1 < len(spans) else max(b + 0.4, a + 1.5)
+            if a < limit:
+                caps.append((a, min(b, limit), ph))
     return caps
 
 
@@ -365,7 +412,7 @@ def main():
         tmp = Path(tmp)
         painter = _NoPainter() if args.script_only else Painter(args.n, load_theme(args.theme))
         scenes, narration = build_scenes(args.n, painter, args.speed, tmp)
-        script_path.write_text("".join(f"{k + 1:02d}  {text}\n" for k, (_, text) in enumerate(narration)))
+        script_path.write_text("".join(f"{k + 1:02d}  {text}\n" for k, (_, text, _) in enumerate(narration)))
         print(f"Wrote {script_path}  ({len(narration)} lines to record)")
         if args.script_only:
             return
@@ -381,7 +428,7 @@ def main():
         graph = f"[0:v]fps={args.fps},format=yuv420p[v]"
         if voice:
             labels = ""
-            for j, (k, (wav, _)) in enumerate(sorted(voice.items())):
+            for j, (k, (wav, _, _)) in enumerate(sorted(voice.items())):
                 cmd += ["-i", str(wav)]
                 ms = int(line_starts[k] * 1000)
                 graph += f";[{j + 1}:a]adelay={ms}|{ms}[l{j}]"

@@ -211,6 +211,53 @@ What the viewer sees (about 1 min 50 s for N = 6):
 
 Change the titles in `projects/nqueens/project.json`. Delete the `"music"` block for no music.
 
+### AI voice-over (no microphone needed)
+
+`scripts/ai_voiceover.py` reads the narration script with **Kokoro**, a free, open-source AI voice
+that runs on your own computer. The default is a male narrator (`am_michael`), lowered one
+semitone so it sounds deeper. The first run downloads the voice model (≈ 340 MB) into `models/`.
+
+```bash
+pip install kokoro-onnx soundfile
+python3 generators/nqueens.py --n 6 --out projects/nqueens/clips/nqueens.mp4 --script-only
+python3 scripts/ai_voiceover.py projects/nqueens/clips/nqueens.script.txt projects/nqueens/voice
+python3 generators/nqueens.py --n 6 --out projects/nqueens/clips/nqueens.mp4 --voice projects/nqueens/voice
+python3 vedit.py build projects/nqueens/project.json
+```
+
+**How it avoids sounding robotic.** The script is written like a teacher talking ("Can you place
+six queens…?", "Uh-oh, a dead end!", "And… solved!"), and each line carries delivery notes:
+
+```
+07  {emphatic} Uh-oh, a dead end! | There's no safe square left in the next row. | So we backtrack: | ...
+```
+
+| Mood | Pace | Pitch | Energy | Used for |
+|---|---|---|---|---|
+| `curious` | 0.95× | +0.5 | normal | Opening question |
+| `explain` | 0.92× (slower) | −0.3 | normal | Rules, strategy, memory boxes |
+| `warm` | 0.94× | 0 | normal | Encouraging lines, wrap-up |
+| `emphatic` | 0.90× (slowest) | −0.2 | +1 dB | "Red means danger", "dead end" |
+| `excited` | 1.02× | +1.0 | +1.5 dB | "Speed things up!", "Solved!" |
+
+On top of the mood, each sentence gets its own pitch, like a teacher's voice. The first sentence
+starts a little brighter, later ones settle lower, and questions and exclamations lift. `|` marks
+where a new caption starts, so students read one short phrase at a time, in sync with the voice.
+Finally the voice is polished: added warmth, clearer consonants, softer "s" sounds, and even
+volume across lines.
+
+Edit the wording or moods in the `.script.txt`, then regenerate (`--only 7` redoes just line 7).
+
+| Option | Meaning |
+|---|---|
+| `--voice am_fenrir` | Another male voice: `am_fenrir`, `am_puck` (US), `bm_george`, `bm_fable` (British) |
+| `--voice "am_michael:60,am_fenrir:40"` | Blend two voices |
+| `--pitch -2` | Deeper (semitones; the default is −1, and 0 is the natural voice) |
+| `--speed 0.9` | Slower overall, for younger students |
+
+> Use either the AI voice or your own recordings in `projects/nqueens/voice/`, not both. A recorded
+> `03.m4a` would sit next to an AI `03.wav` with the same number.
+
 ### Adding your own voice-over
 
 Your voice is recorded **one line at a time**, then each line is placed exactly where its scene

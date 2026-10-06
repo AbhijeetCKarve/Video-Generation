@@ -16,6 +16,7 @@ Microphone input per OS (override with --format / --device):
 """
 import argparse
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -40,7 +41,11 @@ def read_script(path):
     for raw in Path(path).read_text().splitlines():
         num, _, text = raw.strip().partition("  ")
         if num.isdigit() and text:
-            lines.append((num, text.strip()))
+            # "{excited} a | b" -> "(read it: excited) a b"; the markup is for the AI voice
+            mood = re.match(r"\s*\{(\w+)\}", text)
+            text = re.sub(r"\{[^}]*\}", "", text).replace("|", " ")
+            text = " ".join(text.split())
+            lines.append((num, f"({mood.group(1)}) {text}" if mood else text))
     if not lines:
         sys.exit(f"No lines found in {path} (expected '01  text' per line)")
     return lines

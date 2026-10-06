@@ -12,3 +12,4 @@ __pycache__/
 projects/demo/
 projects/*/clips/
 projects/*/voice/
+models/

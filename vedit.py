@@ -182,7 +182,9 @@ def pick_track(music_cfg):
     for t in catalog:
         if mood is None or mood in t.get("moods", []):
             return MUSIC_DIR / t["file"], t
-    sys.exit(f"No track in {CATALOG} matches mood '{mood}'. Add one with `vedit.py music add`.")
+    print(f"  warning: no track in {CATALOG.name} matches mood '{mood}' - building without music.\n"
+          f"  Add one with: python3 vedit.py music add <file> --source pixabay --mood {mood}")
+    return None, None
 
 
 def mix_music(video, music_path, cfg, theme, out, verbose):
@@ -245,8 +247,8 @@ def cmd_build(args):
              "-c", "copy", joined], args.verbose)
 
         credits = []
-        if p.get("music"):
-            track, entry = pick_track(p["music"])
+        track, entry = pick_track(p["music"]) if p.get("music") else (None, None)
+        if track:
             print(f"Mixing music: {track.name}")
             mix_music(joined, track, p["music"], theme, out, args.verbose)
             if entry:
