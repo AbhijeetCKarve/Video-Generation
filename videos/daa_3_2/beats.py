@@ -59,6 +59,13 @@ BEATS = [
     ("g_done", "excited", "Now vertex five can be red. | All five exams fit into three slots!"),
     ("g_code", "explain", "In code, Next Value of k finds the next color | that no adjacent vertex is already using."),
     ("g_complex", "explain", "There are m to the power n possible colorings, | and each check takes order n time, so the worst case is order of n times m to the n."),
+    # ---- worked example 2: the m-coloring state space tree
+    ("w_intro", "curious", "Let's try one more example, the kind you will see in exams. | Can this graph be colored with only two colors?"),
+    ("w_tree", "explain", "We draw the state space tree with m equal to two. | Vertex one takes color one, so vertex two must take color two."),
+    ("w_dead", "emphatic", "Vertex three touches both of them, so both colors die. | We backtrack, and every other branch dies the same way."),
+    ("w_fail", "explain", "The whole tree is dead, so two colors are not enough. | This graph has a triangle, and a triangle always needs three colors."),
+    ("w_m3", "excited", "With m equal to three, vertex three takes color three, | and vertex four takes color two. Solved!"),
+    ("w_answer", "warm", "So the chromatic number of this graph is three. | In the exam, draw the tree exactly like this, with the dead nodes crossed out."),
     # ---- comparison, exam tips, recap
     ("cmp", "explain", "Notice the pattern. | Both problems use the same control abstraction: choose, check the bound, go deeper, and backtrack."),
     ("tip1", "emphatic", "Exam tip one. | You will often be asked to draw the state space tree for four queens. Mark the killed nodes clearly."),

@@ -26,13 +26,15 @@ SECTIONS = {
     "g_intro": ("Graph coloring", "calm"),
     "g_v1": ("Graph coloring · Step by step", "pulse"),
     "g_code": ("Graph coloring · Algorithm", "quiet"),
+    "w_intro": ("Worked example \u00b7 Is m = 2 enough?", "pulse"),
+    "w_m3": ("Worked example \u00b7 Now m = 3", "pulse"),
     "cmp": ("The common pattern", "calm"),
     "tip1": ("Exam tips", "pulse"),
     "recap": ("Recap", "bright"),
 }
 # lines whose animation needs more time than the narration takes
 MIN_WINDOW = {"hook_board": 5.5, "hook_count": 6.5, "hook_mascot": 6.0, "t_solved": 6.0, "t_tree": 5.0,
-              "e_lapse": 15.0, "e_result": 7.0, "e_count": 7.5, "g_done": 5.0}
+              "e_lapse": 15.0, "e_result": 7.0, "e_count": 7.5, "g_done": 5.0, "w_dead": 7.5, "w_m3": 6.0}
 
 if __name__ == "__main__":
     main(beats, HERE / "scene.py", HERE.parents[1] / "projects" / "daa-3.2", SECTIONS, MIN_WINDOW,
@@ -41,7 +43,7 @@ if __name__ == "__main__":
                      "schedule exams so no student has a clash? Both are solved with backtracking. We build the "
                      "4-queens state space tree step by step, watch the full 8-queens search, and colour an exam "
                      "timetable graph with 3 colours, then cover the algorithms (Place, NQueens, mColoring), "
-                     "their time complexity, and exam tips.",
+                     "their time complexity, a second worked example (is m = 2 enough?) and exam tips.",
           "hashtags": "#DAA #Backtracking #NQueens #GraphColoring #Algorithms #DESPU",
           "tags": "daa, design and analysis of algorithms, backtracking, 8 queens problem, n queens, graph coloring, "
                   "m coloring, state space tree, chromatic number, daa unit 3, etcs329"})

@@ -57,6 +57,13 @@ GC = [("place", 1, 1), ("kill", 2, 1), ("place", 2, 2), ("kill", 3, 1), ("kill",
 GPOS = {1: (-1.7, 1.45), 2: (1.7, 1.45), 3: (0, 0.1), 4: (-1.7, -1.3), 5: (1.7, -1.3)}
 GEDGES = [(1, 2), (1, 3), (2, 3), (2, 5), (3, 4), (3, 5), (4, 5)]
 GNAMES = {1: "DAA", 2: "OS", 3: "CN", 4: "DBMS", 5: "TOC"}
+# worked example 2: a square with one diagonal (contains the triangle 1-2-3)
+EX2_EDGES = [(1, 2), (2, 3), (3, 4), (4, 1), (1, 3)]
+EX2_M2 = [("place", 1, 1), ("kill", 2, 1), ("place", 2, 2), ("kill", 3, 1), ("kill", 3, 2), ("back", 2, 2),
+          ("back", 1, 1), ("place", 1, 2), ("place", 2, 1), ("kill", 3, 1), ("kill", 3, 2), ("back", 2, 1),
+          ("kill", 2, 2), ("back", 1, 2)]
+EX2_M3 = [("place", 1, 1), ("kill", 2, 1), ("place", 2, 2), ("kill", 3, 1), ("kill", 3, 2), ("place", 3, 3),
+          ("kill", 4, 1), ("place", 4, 2)]
 SLOTS = {1: "9 AM", 2: "12 PM", 3: "3 PM"}
 
 
@@ -774,6 +781,99 @@ class Video(Scene):
         parts = label("mⁿ colorings  ×  O(n) check each", 24, MUTED).next_to(g, DOWN, buff=0.2)
         self.at(b, 1)
         self.show(g, parts, run_time=0.6)
+
+    # ------------------------------------------------------------ worked example 2: m = 2 vs m = 3
+    def ex2_graph(self):
+        pos = {1: (-2.9, 1.2), 2: (-0.5, 1.2), 3: (-0.5, -1.2), 4: (-2.9, -1.2)}
+        return Graph(pos, EX2_EDGES, r=0.36)
+
+    def ex2_tree(self, events, levels):
+        t = Tree([(k, v - 1, c - 1) for k, v, c in events], width=4.4, height=3.7, r=0.19,
+                 level_names=[f"v{i}" for i in range(1, levels + 1)])
+        return t.center_on(np.array([3.55, 0.05, 0]))
+
+    def run_ex2(self, b, phrase, events, n, per=0.55):
+        self.at(b, phrase)
+        span = self.phrase_len(b, phrase)
+        step = max(0.3, min(per, span / max(n, 1)))
+        for _ in range(n):
+            kind, v, c = events[self.ex_i]
+            if kind == "back":
+                self.go(self.ex_tree.mark_back(self.ex_i), self.ex_g.paint(v, PANEL), run_time=step)
+                self.sfx("back", -step)
+            else:
+                grow = self.ex_tree.grow(self.ex_i)
+                node = self.ex_tree.mobs[self.ex_tree.event_node[self.ex_i]]
+                if kind == "place":
+                    node[0].set_fill(RGB[c], 0.9)
+                    self.go(grow, self.ex_g.paint(v, RGB[c]), run_time=step)
+                    self.sfx("place", -step)
+                else:
+                    ring = Circle(self.ex_g.r + 0.12, color=RGB[c], stroke_width=8).move_to(self.ex_g.vert[v])
+                    self.go(grow, FadeIn(ring, rate_func=there_and_back, remover=True), run_time=step)
+                    self.sfx("kill", -step)
+            self.ex_i += 1
+
+    def b_w_intro(self, b):
+        self.clear(run_time=0.4)
+        self.ex_g = self.ex2_graph()
+        verts = [self.ex_g.vert[k] for k in range(1, 5)]
+        edges = [self.ex_g.edge_mobs[e] for e in EX2_EDGES]
+        self.stage.add(self.ex_g)
+        self.go(*[GrowFromCenter(v) for v in verts], *[Create(e) for e in edges], run_time=0.9)
+        self.at(b, 1)
+        self.m_chip = chip("m = 2 ?", GOLD, 30, "#0F172A").next_to(self.ex_g, UP, buff=0.3)
+        self.stage.add(self.m_chip)
+        self.go(GrowFromCenter(self.m_chip), run_time=0.5)
+        self.sfx("pop")
+
+    def b_w_tree(self, b):
+        self.ex_tree = self.ex2_tree(EX2_M2, 3)
+        self.ex_i = 0
+        self.show(self.ex_tree, run_time=0.5)
+        self.run_ex2(b, 1, EX2_M2, 3)
+
+    def b_w_dead(self, b):
+        self.run_ex2(b, 0, EX2_M2, 2, per=0.6)
+        self.go(self.mascot.set_mood("surprised"), run_time=0.3)
+        self.run_ex2(b, 1, EX2_M2, 9, per=0.42)
+        self.go(self.mascot.set_mood("neutral"), run_time=0.3)
+
+    def b_w_fail(self, b):
+        verdict = chip("\u00d7  2 colors are not enough", KILL, 26).next_to(self.ex_tree, DOWN, buff=0.15)
+        self.stage.add(verdict)
+        self.go(FadeIn(verdict, shift=UP * 0.2), self.m_chip.animate.set_opacity(0.4), run_time=0.5)
+        self.sfx("kill")
+        self.at(b, 1)
+        tri = [self.ex_g.edge_mobs[e] for e in [(1, 2), (2, 3), (1, 3)]]
+        tag = label("triangle", 26, GOLD, "BOLD").move_to(np.array([-1.3, 0.45, 0]))
+        self.stage.add(tag)
+        self.go(*[ln.animate.set_stroke(GOLD, width=8) for ln in tri], FadeIn(tag), run_time=0.8)
+        self.ex_verdict, self.ex_tag, self.ex_tri = verdict, tag, tri
+
+    def b_w_m3(self, b):
+        old = [self.ex_tree, self.ex_verdict, self.m_chip, self.ex_tag]
+        self.stage.remove(*old)
+        m3 = chip("m = 3", SAFE, 30).move_to(self.m_chip)
+        self.stage.add(m3)
+        self.go(*[FadeOut(o) for o in old], GrowFromCenter(m3),
+                *[ln.animate.set_stroke(MUTED, width=4) for ln in self.ex_tri],
+                *[self.ex_g.paint(v, PANEL) for v in range(1, 5)], run_time=0.6)
+        self.ex_tree = self.ex2_tree(EX2_M3, 4)
+        self.ex_i = 0
+        self.show(self.ex_tree, run_time=0.4)
+        self.run_ex2(b, 0, EX2_M3, 6, per=0.4)
+        self.run_ex2(b, 1, EX2_M3, 2, per=0.5)
+        self.go(self.mascot.set_mood("happy"), self.mascot.bounce(), run_time=0.6)
+        self.sfx("chime")
+
+    def b_w_answer(self, b):
+        chi = MathTex(r"\chi(G) = 3", color=GOLD).scale(1.1).next_to(self.ex_tree, DOWN, buff=0.2)
+        self.stage.add(chi)
+        self.go(Write(chi), run_time=0.8)
+        self.at(b, 1)
+        killed = [m for i, m in enumerate(self.ex_tree.mobs) if m is not None and self.ex_tree.nodes[i]["kind"] == "kill"]
+        self.go(LaggedStart(*[Indicate(k, color=KILL, scale_factor=1.5) for k in killed], lag_ratio=0.15), run_time=1.5)
 
     # ------------------------------------------------------------ pattern, tips, recap
     def b_cmp(self, b):
