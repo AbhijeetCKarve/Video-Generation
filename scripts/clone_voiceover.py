@@ -46,6 +46,12 @@ VOCODER = MODELS / "zipvoice" / "vocos_24khz.onnx"
 SPK = MODELS / "spk" / "wespeaker_en_voxceleb_resnet34_LM.onnx"
 SR = 48000
 LIVELY = {"excited", "curious", "emphatic"}
+# lone maths letters are swallowed by the voice model ("queen k" -> "queen"), so it reads them spelled out
+SPOKEN = {"k": "kay", "i": "eye", "j": "jay", "n": "en", "m": "em", "x": "ex"}
+
+
+def say_as(text):
+    return re.sub(r"(?<!['\u2019])\b([kijnmx])\b", lambda mt: SPOKEN[mt.group(1)], text)   # not the m in I'm
 NUM = {str(i): w for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve".split())}
 
 
@@ -119,7 +125,7 @@ class Models:
         return e / np.linalg.norm(e)
 
     def clone(self, text, prompt_text, prompt24, speed, steps):
-        g = self.tts.generate(text, prompt_text, prompt24.tolist(), 24000, speed=speed, num_steps=steps)
+        g = self.tts.generate(say_as(text), prompt_text, prompt24.tolist(), 24000, speed=speed, num_steps=steps)
         return np.array(g.samples, dtype="float32"), g.sample_rate
 
 
@@ -150,7 +156,8 @@ def speech_segments(y, sr, min_gap=0.35, pad=0.12):
 
 def words(text):
     text = re.sub(r"(\d+)\s*x\s*(\d+)", r"\1 by \2", text.lower()).replace("-", " ")
-    return [NUM.get(w, w) for w in re.sub(r"[^a-z0-9 ]", " ", text).split()]
+    letters = {v: k for k, v in SPOKEN.items()}                # "kay" heard = "k" in the script
+    return [letters.get(w, NUM.get(w, w)) for w in re.sub(r"[^a-z0-9 ]", " ", text).split()]
 
 
 def match(a, b):
@@ -253,6 +260,8 @@ def main():
                          "(your lines then serve only as voice samples and every line is cloned)")
     ap.add_argument("--speed", type=float, default=1.0, help="pace of cloned lines (default 1.0 = like you)")
     ap.add_argument("--steps", type=int, default=8, help="cloning quality steps (more = slower, smoother)")
+    ap.add_argument("--only", type=int, action="append", help="(re)make just this line number, repeatable")
+    ap.add_argument("--tries", type=int, default=1, help="takes per voice sample (more = better pick, slower)")
     ap.add_argument("--polish-only", action="store_true",
                     help="re-apply the clean-up to the saved raw takes (outdir/raw) without re-cloning")
     args = ap.parse_args()
@@ -344,6 +353,8 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="clone_") as tmp:
         for num, mood, phrases in lines:
+            if args.only and int(num) not in args.only:
+                continue
             text = " ".join(phrases)
             if num in own and not args.clone_all:
                 o = own[num]
@@ -354,7 +365,7 @@ def main():
             else:
                 # 3. clone: try every prompt, keep the take most like you, clear, and lively when it should be
                 best = None
-                for pid, ptext, paudio, pmood in prompts:
+                for pid, ptext, paudio, pmood in prompts * args.tries:
                     y24, rate = m.clone(text, ptext, resample(paudio, SR, 24000), args.speed, args.steps)
                     y16 = resample(y24, rate, 16000)
                     sim = float(m.embed(y16) @ you)
