@@ -1,0 +1,31 @@
+{
+  "theme": "clean",
+  "resolution": [
+    1920,
+    1080
+  ],
+  "fps": 30,
+  "intro": {
+    "image": "output/thumbnail.png",
+    "duration": 3
+  },
+  "clips": [
+    {
+      "file": "clips/nqueens.mp4",
+      "captions": "clips/nqueens.srt",
+      "clean_audio": false
+    }
+  ],
+  "outro": {
+    "title": "Thanks for watching",
+    "subtitle": "Try it yourself with N = 8",
+    "duration": 3
+  },
+  "music": {
+    "mood": "focus",
+    "volume": 0.16,
+    "duck": true
+  },
+  "output": "output/nqueens-youtube.mp4",
+  "cover": "output/thumbnail.png"
+}

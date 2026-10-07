@@ -100,6 +100,30 @@ def encode_args(fps):
             "-r", str(fps), "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2"]
 
 
+def render_image_card(card, size, fps, base, out, verbose):
+    """A still image (e.g. the thumbnail) shown full screen, with a short fade in/out."""
+    w, h = size
+    dur = float(card.get("duration", 3))
+    img = (base / card["image"]).resolve()
+    if not img.exists():
+        sys.exit(f"Image not found: {img}")
+    fade = min(0.5, dur / 4)
+    run(["ffmpeg", "-y", "-loop", "1", "-framerate", str(fps), "-t", str(dur), "-i", img,
+         "-f", "lavfi", "-i", f"anullsrc=r=48000:cl=stereo:d={dur}",
+         "-vf", f"scale={w}:{h}:force_original_aspect_ratio=decrease:flags=lanczos,"
+                f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1,"
+                f"fade=t=in:st=0:d={fade},fade=t=out:st={dur - fade}:d={fade}",
+         "-shortest", *encode_args(fps), out], verbose)
+
+
+def embed_cover(video, image, verbose):
+    """Attach an image as the MP4's cover art (shown by file browsers and phones)."""
+    tmp = video.with_name(video.stem + ".cover" + video.suffix)
+    run(["ffmpeg", "-y", "-i", video, "-i", image, "-map", "0", "-map", "1", "-c", "copy",
+         "-c:v:1", "png", "-disposition:v:1", "attached_pic", "-movflags", "+faststart", tmp], verbose)
+    tmp.replace(video)
+
+
 def render_card(card, theme, size, fps, out, tmp, verbose):
     """Solid-colour title card with a title, optional subtitle and accent bar."""
     w, h = size
@@ -238,8 +262,10 @@ def cmd_build(args):
                    ([("card", p["outro"])] if p.get("outro") else [])
         for i, (kind, item) in enumerate(timeline):
             seg = tmp_path / f"seg{i:03d}.mp4"
-            print(f"[{i + 1}/{len(timeline)}] {kind}: {item.get('title') or item.get('file')}")
-            if kind == "card":
+            print(f"[{i + 1}/{len(timeline)}] {kind}: {item.get('title') or item.get('image') or item.get('file')}")
+            if kind == "card" and item.get("image"):
+                render_image_card(item, (w, h), fps, base, seg, args.verbose)
+            elif kind == "card":
                 render_card(item, theme, (w, h), fps, seg, tmp, args.verbose)
             else:
                 render_clip(item, theme, (w, h), fps, base, seg, tmp, args.verbose)
@@ -262,6 +288,10 @@ def cmd_build(args):
         else:
             print("Normalising loudness...")
             normalise_only(joined, out, args.verbose)
+
+    if p.get("cover"):
+        print("Embedding cover image...")
+        embed_cover(out, (base / p["cover"]).resolve(), args.verbose)
 
     if credits:
         lines = [f"\"{c.get('title', c['file'])}\" by {c.get('artist', 'unknown')} - {c['source']}"

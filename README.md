@@ -172,7 +172,8 @@ font, and use `"theme": "mybrand"`.
 | Field | Meaning |
 |---|---|
 | `resolution` | `[1920, 1080]` for YouTube, `[1080, 1920]` for Shorts/Reels/TikTok |
-| `intro` / `outro` | Optional. Delete them if you don't want title cards |
+| `intro` / `outro` | Optional. Delete them if you don't want title cards. `{"image": "output/thumbnail.png", "duration": 3}` shows an image (such as your thumbnail) instead |
+| `cover` | Optional image embedded as the MP4's cover art (phones and file browsers show it). YouTube still needs the thumbnail uploaded separately |
 | `start` / `end` | Optional. Seconds to keep from that clip |
 | `clean_audio` | Optional, default `true`: light noise clean-up for raw recordings. Use `false` for narration that is already processed |
 | `music.mood` | Picks the first track in your library with that mood tag… |
