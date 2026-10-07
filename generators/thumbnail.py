@@ -63,7 +63,7 @@ def board(n, size):
     return img
 
 
-def make(n, author, out):
+def make(n, author, out, tag="DAA  \u00b7  BACKTRACKING"):
     img = Image.new("RGB", (W, H))
     px = ImageDraw.Draw(img)
     for y in range(H):                            # vertical gradient background
@@ -85,7 +85,7 @@ def make(n, author, out):
     x = 64
     # topic pill
     pf = font("Inter:extrabold", 30)
-    label = "DSA  ·  BACKTRACKING"
+    label = tag
     w = d.textlength(label, font=pf)
     d.rounded_rectangle([x, 58, x + w + 44, 112], radius=27, fill=BLUE)
     d.text((x + 22, 85), label, font=pf, fill=WHITE, anchor="lm")
@@ -115,8 +115,9 @@ def main():
     ap.add_argument("--author", required=True)
     ap.add_argument("--n", type=int, default=6)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--tag", default="DAA  \u00b7  BACKTRACKING", help="text in the blue pill")
     args = ap.parse_args()
-    out = make(args.n, args.author, args.out)
+    out = make(args.n, args.author, args.out, args.tag)
     print(f"Wrote {out} ({out.stat().st_size / 1024:.0f} KB)")
 
 
