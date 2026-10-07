@@ -154,8 +154,33 @@ def speech_segments(y, sr, min_gap=0.35, pad=0.12):
     return segs
 
 
+ONES = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen " \
+       "seventeen eighteen nineteen".split()
+TENS = "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()
+
+
+def number_words(token):
+    """'113' -> 'one hundred and thirteen'; long digit runs ('2413', '15863724') are read digit by digit."""
+    n = int(token)
+    if len(token) > 3 and not (len(token) == 4 and token[0] != "0" and n % 1000 < 100 and n < 10000 and n % 100 == 0):
+        return " ".join(ONES[int(d)] for d in token)
+    parts = []
+    if n >= 100:
+        parts.append(ONES[n // 100] + " hundred")
+        n %= 100
+        if n:
+            parts.append("and")
+    if n >= 20:
+        parts.append(TENS[n // 10] + ("" if n % 10 == 0 else " " + ONES[n % 10]))
+    elif n or not parts:
+        parts.append(ONES[n])
+    return " ".join(parts)
+
+
 def words(text):
     text = re.sub(r"(\d+)\s*x\s*(\d+)", r"\1 by \2", text.lower()).replace("-", " ")
+    text = re.sub(r"(?<=\d),(?=\d{3})", "", text)
+    text = re.sub(r"\d+", lambda mt: " " + number_words(mt.group()) + " ", text)
     letters = {v: k for k, v in SPOKEN.items()}                # "kay" heard = "k" in the script
     return [letters.get(w, NUM.get(w, w)) for w in re.sub(r"[^a-z0-9 ]", " ", text).split()]
 

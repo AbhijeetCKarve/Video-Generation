@@ -210,7 +210,7 @@ def render(scene_py, sched_path, env_path, sfx_log, media_dir, quality="h"):
 
 
 def mix(sched, video, narr_wav, sfx_log, srt_path, thumbnail, out, theme="clean"):
-    tmp = Path(out).parent / "tmp"
+    tmp = Path(out).parent / ("tmp-" + Path(out).stem)
     tmp.mkdir(exist_ok=True)
     voice, _ = sf.read(narr_wav, dtype="float32")
     events = json.loads(Path(sfx_log).read_text()) if Path(sfx_log).exists() else []
@@ -276,24 +276,28 @@ def main(beats_mod, scene_py, project_dir, sections, min_window, meta):
     ap.add_argument("step", choices=["schedule", "render", "mix", "all"])
     ap.add_argument("--estimate", action="store_true", help="schedule from word counts (voice not ready)")
     ap.add_argument("--quality", default="h", choices=["l", "m", "h"])
+    ap.add_argument("--variant", default="", help="e.g. 'real': uses voice-real/, build-real/, daa-<code>-real.mp4")
     args = ap.parse_args()
     p = Path(project_dir)
-    (p / "build").mkdir(parents=True, exist_ok=True)
-    sched_path, env_path = p / "build" / "schedule.json", p / "build" / "envelope.npy"
-    narr, sfx_log, srt_path = p / "build" / "narration.wav", p / "build" / "sfx.json", p / "build" / "captions.srt"
+    sfx = f"-{args.variant}" if args.variant else ""
+    build = p / f"build{sfx}"
+    build.mkdir(parents=True, exist_ok=True)
+    os.environ["VARIANT"] = args.variant                    # the scene can adapt (e.g. the intro line)
+    sched_path, env_path = build / "schedule.json", build / "envelope.npy"
+    narr, sfx_log, srt_path = build / "narration.wav", build / "sfx.json", build / "captions.srt"
     if args.step in ("schedule", "all"):
-        sched = schedule(beats_mod.BEATS, sections, min_window, p / "voice", sched_path, args.estimate, meta)
+        sched = schedule(beats_mod.BEATS, sections, min_window, p / f"voice{sfx}", sched_path, args.estimate, meta)
         narration(sched, narr, env_path)
         srt(sched, srt_path)
     if args.step in ("render", "all"):
-        video = render(scene_py, sched_path, env_path, sfx_log, p / "build" / "media", args.quality)
-        (p / "build" / "render.txt").write_text(str(video))
+        video = render(scene_py, sched_path, env_path, sfx_log, build / "media", args.quality)
+        (build / "render.txt").write_text(str(video))
         print(f"Rendered {video}")
     if args.step in ("mix", "all"):
         sched = json.loads(sched_path.read_text())
-        video = Path((p / "build" / "render.txt").read_text().strip())
-        out = p / "output" / f"daa-{meta['code']}.mp4"
+        video = Path((build / "render.txt").read_text().strip())
+        out = p / "output" / f"daa-{meta['code']}{sfx}.mp4"
         out.parent.mkdir(exist_ok=True)
         mix(sched, video, narr, sfx_log, srt_path, p / "output" / "thumbnail.png", out)
-        youtube_description(sched, meta, p / "output" / "youtube-description.txt")
+        youtube_description(sched, meta, p / "output" / f"youtube-description{sfx}.txt")
         print(f"Final video: {out}")
