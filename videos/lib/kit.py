@@ -169,6 +169,27 @@ class Mascot(VGroup):
         return VGroup(g, tail)
 
 
+class FaceSpot(VGroup):
+    """Where your face-cam goes (the video itself is laid in at the final mix): an accent
+    ring with the same calls as Mascot, which do nothing - your face does the reacting."""
+
+    def __init__(self, accent="#EF4444", radius=1.11, **kw):
+        super().__init__(**kw)
+        self.ring = Circle(radius=radius + 0.05, stroke_color=accent, stroke_width=6)
+        self.add(self.ring)
+
+    def attach(self, clock, envelope, fps=30):
+        return self
+
+    def _still(self):
+        return Animation(self.ring)
+
+    def set_mood(self, mood):
+        return self._still()
+
+    bounce = wave = point = tilt = _still
+
+
 # ---------------------------------------------------------------- chessboard
 class Board(VGroup):
     def __init__(self, n, size=3.4, labels=True, **kw):

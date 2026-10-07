@@ -123,7 +123,7 @@ def check_facts(facts_py, report):
         report("content", claim, PASS if ok else FAIL, "recomputed")
 
 
-def check_rights(project, desc, report, real_voice=False):
+def check_rights(project, desc, report, real_voice=False, camera=False):
     for name, why, status in LICENSES:
         report("rights", name, status, why)
     catalog = json.loads((ROOT / "music" / "catalog.json").read_text())
@@ -135,6 +135,8 @@ def check_rights(project, desc, report, real_voice=False):
     else:
         report("rights", "Voice", WARN,
                "your own voice, partly AI-cloned: tick 'Altered or synthetic content' when uploading")
+    if camera:
+        report("rights", "Camera footage", PASS, "your own face-cam recording")
     report("rights", "Credit line in description", PASS if "Created by" in desc else WARN,
            "present" if "Created by" in desc else "add 'Created by ...'")
     report("rights", "Final Content ID check", WARN,
@@ -190,7 +192,7 @@ def main():
     check_picture(video, dur, report)
     check_captions(p / f"build{sfx}" / "captions.srt", report)
     check_facts(args.facts, report)
-    check_rights(p, desc, report, real_voice=args.variant == "real")
+    check_rights(p, desc, report, real_voice=args.variant in ("real", "face"), camera=args.variant == "face")
     if desc:
         check_youtube(desc, p / "output" / "thumbnail.png", report)
     else:

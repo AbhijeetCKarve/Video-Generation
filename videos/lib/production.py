@@ -32,6 +32,7 @@ MUSIC = {"bright": ("generated-upbeat.mp3", 0), "calm": ("generated-ambient.mp3"
          "pulse": ("generated-lofi.mp3", 0), "quiet": ("generated-ambient.mp3", -7)}
 MUSIC_BASE_DB = -27  # music file (-16 LUFS) -> about 26-28 dB under the narration
 SFX_DB = {"place": -25, "kill": -29, "back": -27, "chime": -22, "pop": -30, "whoosh": -31}
+FACE_POS = (-5.75, -1.05)   # face-cam circle centre in scene units = the mascot's spot (scene.py MASCOT_POS)
 
 
 def phrases_of(text):
@@ -209,7 +210,26 @@ def render(scene_py, sched_path, env_path, sfx_log, media_dir, quality="h"):
     return found[-1]
 
 
-def mix(sched, video, narr_wav, sfx_log, srt_path, thumbnail, out, theme="clean"):
+def face_layer(face, tmp):
+    """FFmpeg inputs + filter that lay the face-cam clip, cut to a circle, over the mascot's spot."""
+    from PIL import Image
+    clip, start = face
+    size = int(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "stream=width",
+                               "-of", "csv=p=0", str(clip)], capture_output=True, text=True).stdout)
+    y, x = np.mgrid[:size, :size] + 0.5
+    r = np.hypot(x - size / 2, y - size / 2)
+    mask = tmp / "face-mask.png"
+    Image.fromarray((np.clip(size / 2 - 1 - r + 0.5, 0, 1) * 255).astype("uint8"), "L").save(mask)
+    px = 1920 / 14.2222                                         # pixels per scene unit at 1080p
+    cx, cy = 960 + FACE_POS[0] * px, 540 - FACE_POS[1] * px
+    inputs = ["-i", clip, "-loop", "1", "-i", mask]
+    graph = (f"[4:v]format=rgba[fc];[5:v]format=gray[mk];[fc][mk]alphamerge,fade=t=in:st=0:d=0.6:alpha=1,"
+             f"setpts=PTS-STARTPTS+{start}/TB[face];[0:v][face]overlay={cx - size / 2:.0f}:{cy - size / 2:.0f}"
+             f":eof_action=pass[base];")
+    return inputs, graph
+
+
+def mix(sched, video, narr_wav, sfx_log, srt_path, thumbnail, out, theme="clean", face=None):
     tmp = Path(out).parent / ("tmp-" + Path(out).stem)
     tmp.mkdir(exist_ok=True)
     voice, _ = sf.read(narr_wav, dtype="float32")
@@ -228,8 +248,12 @@ def mix(sched, video, narr_wav, sfx_log, srt_path, thumbnail, out, theme="clean"
              f"OutlineColour={vedit.ass_color(c['outline'])},BorderStyle=1,Outline=2,Shadow=0,MarginV=22")
     subs = tmp / "captions.srt"
     subs.write_text(Path(srt_path).read_text())
-    vedit.run(["ffmpeg", "-y", "-i", video, "-i", video, "-i", tmp / "voice.wav", "-i", tmp / "fxmusic.wav",
-               "-filter_complex", graph + f";[0:v]subtitles=filename='{subs}':force_style='{style}'[vout]",
+    face_in, face_graph, base = [], "", "[0:v]"
+    if face:                                                    # your camera, in the mascot's circle
+        face_in, face_graph = face_layer(face, tmp)
+        base = "[base]"
+    vedit.run(["ffmpeg", "-y", "-i", video, "-i", video, "-i", tmp / "voice.wav", "-i", tmp / "fxmusic.wav", *face_in,
+               "-filter_complex", graph + ";" + face_graph + f"{base}subtitles=filename='{subs}':force_style='{style}'[vout]",
                "-map", "[vout]", "-map", "[a]", "-c:v", "libx264", "-preset", "medium", "-crf", "18",
                "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest", out])
     vedit.embed_cover(Path(out), Path(thumbnail), False)
@@ -276,17 +300,22 @@ def main(beats_mod, scene_py, project_dir, sections, min_window, meta):
     ap.add_argument("step", choices=["schedule", "render", "mix", "all"])
     ap.add_argument("--estimate", action="store_true", help="schedule from word counts (voice not ready)")
     ap.add_argument("--quality", default="h", choices=["l", "m", "h"])
-    ap.add_argument("--variant", default="", help="e.g. 'real': uses voice-real/, build-real/, daa-<code>-real.mp4")
+    ap.add_argument("--variant", default="", help="e.g. 'real': uses voice-real/, build-real/, daa-<code>-real.mp4; "
+                    "'face': real voice + your camera (--camera) where the mascot stands")
+    ap.add_argument("--camera", help="face variant: the camera recording the real-voice lines were cut from")
     args = ap.parse_args()
     p = Path(project_dir)
     sfx = f"-{args.variant}" if args.variant else ""
+    if args.variant == "face" and not args.camera:
+        sys.exit("The face variant needs --camera <your camera recording>.")
+    voice_dir = p / ("voice-real" if args.variant == "face" else f"voice{sfx}")
     build = p / f"build{sfx}"
     build.mkdir(parents=True, exist_ok=True)
     os.environ["VARIANT"] = args.variant                    # the scene can adapt (e.g. the intro line)
     sched_path, env_path = build / "schedule.json", build / "envelope.npy"
     narr, sfx_log, srt_path = build / "narration.wav", build / "sfx.json", build / "captions.srt"
     if args.step in ("schedule", "all"):
-        sched = schedule(beats_mod.BEATS, sections, min_window, p / f"voice{sfx}", sched_path, args.estimate, meta)
+        sched = schedule(beats_mod.BEATS, sections, min_window, voice_dir, sched_path, args.estimate, meta)
         narration(sched, narr, env_path)
         srt(sched, srt_path)
     if args.step in ("render", "all"):
@@ -298,6 +327,11 @@ def main(beats_mod, scene_py, project_dir, sections, min_window, meta):
         video = Path((build / "render.txt").read_text().strip())
         out = p / "output" / f"daa-{meta['code']}{sfx}.mp4"
         out.parent.mkdir(exist_ok=True)
-        mix(sched, video, narr, sfx_log, srt_path, p / "output" / "thumbnail.png", out)
+        face = None
+        if args.variant == "face":
+            import facecam
+            start = next(b["start"] for b in sched["beats"] if b["key"] == "hook_mascot")
+            face = (facecam.track(sched, voice_dir, args.camera, build / "face.mp4", start), start)
+        mix(sched, video, narr, sfx_log, srt_path, p / "output" / "thumbnail.png", out, face=face)
         youtube_description(sched, meta, p / "output" / f"youtube-description{sfx}.txt")
         print(f"Final video: {out}")

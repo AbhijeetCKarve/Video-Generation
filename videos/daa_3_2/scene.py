@@ -17,6 +17,8 @@ config.background_color = BG
 
 STAGE = np.array([0.9, 0.15, 0])
 MASCOT_POS = np.array([-5.75, -1.05, 0])
+VARIANT = os.environ.get("VARIANT", "")
+FACE = VARIANT == "face"          # your camera in a circle where the mascot stands
 SOL8 = [0, 4, 7, 5, 2, 6, 1, 3]
 RGB = {1: "#EF4444", 2: "#22C55E", 3: "#3B82F6"}
 CNAME = {1: "red", 2: "green", 3: "blue"}
@@ -125,6 +127,8 @@ class Video(Scene):
     def say(self, text, hold=None):
         """Speech bubble from the mascot; removed at the next bubble or explicitly."""
         self.unsay()
+        if FACE:                         # you say it yourself on camera
+            return
         self.bubble_mob = self.mascot.bubble(text)
         self.go(FadeIn(self.bubble_mob, shift=UP * 0.15), run_time=0.3)
 
@@ -144,9 +148,12 @@ class Video(Scene):
         self.play(FadeOut(thumb), run_time=0.5)
         self.header = Header(S["unit"], S["code"])
         self.header_on = False
-        self.mascot = Mascot(accent=UNIT_COLORS[S["unit"]], height=1.9).move_to(MASCOT_POS + LEFT * 4)
-        self.mascot.attach(self.now, ENV)
-        self.add(self.mascot)
+        if FACE:
+            self.mascot = FaceSpot(accent=UNIT_COLORS[S["unit"]]).move_to(MASCOT_POS)
+        else:
+            self.mascot = Mascot(accent=UNIT_COLORS[S["unit"]], height=1.9).move_to(MASCOT_POS + LEFT * 4)
+            self.mascot.attach(self.now, ENV)
+            self.add(self.mascot)
         for b in S["beats"]:
             self.until(b["start"])
             if b["section"] and self.header_on:
@@ -213,7 +220,10 @@ class Video(Scene):
     def b_hook_mascot(self, b):
         self.clear(run_time=0.5)
         self.mascot_on = True
-        self.go(self.mascot.animate.move_to(MASCOT_POS), run_time=0.8)
+        if FACE:                         # the face-cam fades in inside this ring at the mix
+            self.go(GrowFromCenter(self.mascot), run_time=0.6)
+        else:
+            self.go(self.mascot.animate.move_to(MASCOT_POS), run_time=0.8)
         self.sfx("whoosh")
         self.go(self.mascot.wave(), run_time=1.0)
         series = label("DAA SERIES", 34, MUTED, "BOLD")
@@ -222,7 +232,7 @@ class Video(Scene):
         self.show(g, anim=FadeIn, run_time=0.6, shift=UP * 0.2)
         self.at(b, 1)
         # with the real voice you introduce yourself, so Algo just greets the students
-        self.say("Hi, students!" if os.environ.get("VARIANT") == "real" else "Hi! I'm Algo")
+        self.say("Hi, students!" if VARIANT == "real" else "Hi! I'm Algo")
         guide = label("your guide, step by step", 30, ACCENT).next_to(g, DOWN, buff=0.4)
         self.show(guide, run_time=0.5)
 

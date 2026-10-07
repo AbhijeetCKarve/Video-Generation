@@ -76,7 +76,7 @@ def main():
     video = sorted(videos, key=lambda f: f.stat().st_mtime)[-1]
     gates(project, video, args.consent, args.again, sfx)
     title, body, tags = read_metadata(project / "output" / f"youtube-description{sfx}.txt")
-    synthetic = args.variant != "real"          # only the cloned narration needs the AI disclosure
+    synthetic = args.variant not in ("real", "face")   # only the cloned narration needs the AI disclosure
 
     from googleapiclient.http import MediaFileUpload
     yt = youtube_client()
