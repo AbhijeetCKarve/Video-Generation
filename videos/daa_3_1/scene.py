@@ -300,7 +300,8 @@ class Video(Scene):
         self.show(chat, anim=GrowFromCenter, run_time=0.4)
         self.go(Wiggle(a), Wiggle(bb), run_time=1.0)
         self.at(b, 1)
-        rule = VGroup(card(6.4, 0.85, edge=KILL), label("Rule:  A and B must not sit side by side", 26, TEXT, "BOLD"))
+        txt = label("Rule:  A and B must not sit side by side", 26, TEXT, "BOLD")
+        rule = VGroup(card(txt.width + 0.7, 0.85, edge=KILL), txt)
         rule[1].move_to(rule[0])
         rule.move_to(STAGE + DOWN * 2.2)
         self.show(rule, run_time=0.5, shift=UP * 0.2)
@@ -310,9 +311,10 @@ class Video(Scene):
     def b_bf_brute(self, b):
         self.clear(run_time=0.4)
         tuples = ["".join(t) for t in product(STUDENTS, repeat=3)]
-        grid = VGroup(*[Text(" ".join(t), font=MONO, font_size=26, color=TEXT,
+        grid = VGroup(*[Text(t, font=MONO, font_size=30, color=TEXT, weight="BOLD",
                              t2c={s: SCOL[s] for s in STUDENTS}) for t in tuples])
-        grid.arrange_in_grid(rows=3, cols=9, buff=(0.38, 0.4)).move_to(STAGE + UP * 0.2)
+        grid.arrange_in_grid(rows=3, cols=9, buff=(0.42, 0.42))
+        grid.scale_to_fit_width(min(grid.width, 9.0)).move_to(STAGE + UP * 0.2 + RIGHT * 0.3)
         self.grid, self.tuples = grid, tuples
         self.stage.add(grid)
         self.go(LaggedStart(*[FadeIn(t, scale=0.8) for t in grid], lag_ratio=0.06), run_time=2.2)
@@ -396,6 +398,8 @@ class Video(Scene):
 
     def card_line(self, title, mob, row):
         box, head = self.ccards[title]
+        if mob.width > box.width - 0.4:                       # keep every line inside its card
+            mob.scale_to_fit_width(box.width - 0.4)
         return mob.move_to(box.get_top() + DOWN * (1.15 + 0.62 * row))
 
     def b_c_explicit(self, b):
@@ -698,8 +702,8 @@ class Video(Scene):
                 self.sfx("pop", -0.3)
 
     def b_a_worst(self, b):
-        worst = chip("Worst case: exponential", KILL, 24)
-        good = chip("Good bounding function  →  fast in practice", SAFE, 24)
+        worst = chip("Worst case: exponential", KILL, 22)
+        good = chip("Good bounding  →  fast in practice", SAFE, 22)
         g = VGroup(worst, good).arrange(RIGHT, buff=0.4).move_to(STAGE + DOWN * 2.0)
         self.show(worst, anim=GrowFromCenter, run_time=0.4)
         self.at(b, 1)
