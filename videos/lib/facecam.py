@@ -23,7 +23,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from clone_voiceover import load, speech_segments  # noqa: E402
 
 FPS = 30
-SIZE = 300                     # face circle diameter on screen, pixels
+SIZE = 250                     # face circle diameter on screen, pixels (scene ring radius 0.926 units)
 CROP = "crop=780:780:575:58"   # head-and-shoulders square inside the recording window
 LOOK = "eq=contrast=1.18:brightness=-0.03:saturation=1.3:gamma=0.92,unsharp=5:5:0.6"   # dim webcam -> clearer
 AR = 8000                      # audio rate for matching

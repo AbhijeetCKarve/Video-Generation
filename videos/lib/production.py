@@ -32,7 +32,7 @@ MUSIC = {"bright": ("generated-upbeat.mp3", 0), "calm": ("generated-ambient.mp3"
          "pulse": ("generated-lofi.mp3", 0), "quiet": ("generated-ambient.mp3", -7)}
 MUSIC_BASE_DB = -27  # music file (-16 LUFS) -> about 26-28 dB under the narration
 SFX_DB = {"place": -25, "kill": -29, "back": -27, "chime": -22, "pop": -30, "whoosh": -31}
-FACE_POS = (-5.75, -1.05)   # face-cam circle centre in scene units = the mascot's spot (scene.py MASCOT_POS)
+FACE_POS = (-6.07, -1.05)   # face-cam circle centre in scene units (scene.py FACE_POS)
 
 
 def phrases_of(text):

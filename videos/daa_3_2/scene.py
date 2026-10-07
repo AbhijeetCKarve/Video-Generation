@@ -19,6 +19,7 @@ STAGE = np.array([0.9, 0.15, 0])
 MASCOT_POS = np.array([-5.75, -1.05, 0])
 VARIANT = os.environ.get("VARIANT", "")
 FACE = VARIANT == "face"          # your camera in a circle where the mascot stands
+FACE_POS = np.array([-6.07, -1.05, 0])   # a little further left than the mascot: clear of the code panels
 SOL8 = [0, 4, 7, 5, 2, 6, 1, 3]
 RGB = {1: "#EF4444", 2: "#22C55E", 3: "#3B82F6"}
 CNAME = {1: "red", 2: "green", 3: "blue"}
@@ -149,7 +150,7 @@ class Video(Scene):
         self.header = Header(S["unit"], S["code"])
         self.header_on = False
         if FACE:
-            self.mascot = FaceSpot(accent=UNIT_COLORS[S["unit"]]).move_to(MASCOT_POS)
+            self.mascot = FaceSpot(accent=UNIT_COLORS[S["unit"]], radius=0.926).move_to(FACE_POS)
         else:
             self.mascot = Mascot(accent=UNIT_COLORS[S["unit"]], height=1.9).move_to(MASCOT_POS + LEFT * 4)
             self.mascot.attach(self.now, ENV)
