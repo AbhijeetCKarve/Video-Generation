@@ -384,3 +384,31 @@ Tips for a good-sounding voice-over:
 | Music too loud / quiet | Change `music.volume` (e.g. 0.15 or 0.35) |
 | Video looks squashed | It shouldn't be — clips are fitted with bars. Check `resolution` is what you want |
 | Something fails | Run with `-v` and look at the last FFmpeg command and error |
+
+---
+
+## Publishing to YouTube (quality gate + consent)
+
+Nothing goes to YouTube until the video passes the checks **and** the channel owner says yes.
+
+1. **Check** the finished video:
+   ```bash
+   python3 scripts/qa_check.py projects/daa-3.2 --facts videos/daa_3_2/facts.py --minutes 6,8
+   ```
+   Writes `output/qa-report.md`: picture/audio quality (1080p, -14 LUFS, no clipping, no black or frozen
+   screens), captions, every fact in the video recomputed, the licence of every asset, AI-voice disclosure, and
+   YouTube's limits (title, description, tags, chapters, thumbnail). Any FAIL blocks the upload.
+2. **Consent:** the owner reviews the video and the report and approves that specific file.
+3. **Upload** (only then):
+   ```bash
+   python3 scripts/youtube_upload.py projects/daa-3.2 --consent "upload daa-3.2.mp4"
+   ```
+   Uploads as **Private** with title, description + chapters, tags, Education category, "not made for kids",
+   the *altered or synthetic content* disclosure, the thumbnail and an English subtitle track.
+4. **YouTube's copyright check** (Content ID) runs on the private video. In YouTube Studio, open the video,
+   confirm *Copyright: no issues*, then **Publish**.
+
+One-time setup: run `scripts/youtube_auth.py` on your own computer (instructions inside) and add the three
+values it prints (`YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`) as environment variables in the
+Claude cloud environment settings. Never paste them into a chat. Uploads from a new, unaudited Google Cloud
+project stay Private until you publish them yourself, which is exactly the review step above.
