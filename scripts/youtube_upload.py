@@ -36,16 +36,16 @@ def read_metadata(desc_file):
     return title, body, tags
 
 
-def gates(project, video, consent, again):
+def gates(project, video, consent, again, sfx=""):
     expected = f"upload {video.name}"
     if consent != expected:
         sys.exit(f'Not uploading: consent must be exactly "{expected}" (given after the owner approved this video).')
-    qa = project / "output" / "qa-report.md"
+    qa = project / "output" / f"qa-report{sfx}.md"
     if not qa.exists() or qa.stat().st_mtime < video.stat().st_mtime:
         sys.exit("Not uploading: run scripts/qa_check.py on this exact video first.")
     if "Verdict: FAIL" in qa.read_text():
         sys.exit("Not uploading: the QA report has failures. Fix them and re-run the check.")
-    done = project / "output" / "upload.json"
+    done = project / "output" / f"upload{sfx}.json"
     if done.exists() and not again:
         prev = json.loads(done.read_text())
         sys.exit(f"Already uploaded on {prev['uploaded_at']}: {prev['url']} (use --again to upload a second copy).")
@@ -67,11 +67,16 @@ def main():
     ap.add_argument("project")
     ap.add_argument("--consent", required=True, help='exactly "upload <video file name>"')
     ap.add_argument("--again", action="store_true", help="allow a second upload of the same video")
+    ap.add_argument("--variant", default="", help="upload daa-<code>-<variant>.mp4 (e.g. real)")
     args = ap.parse_args()
     project = Path(args.project)
-    video = sorted((project / "output").glob("daa-*.mp4"), key=lambda f: f.stat().st_mtime)[-1]
-    gates(project, video, args.consent, args.again)
-    title, body, tags = read_metadata(project / "output" / "youtube-description.txt")
+    sfx = f"-{args.variant}" if args.variant else ""
+    videos = [f for f in (project / "output").glob("daa-*.mp4") if f.stem.endswith(sfx) and
+              (sfx or not any(f.stem.endswith(x) for x in ("-real", "-face")))]
+    video = sorted(videos, key=lambda f: f.stat().st_mtime)[-1]
+    gates(project, video, args.consent, args.again, sfx)
+    title, body, tags = read_metadata(project / "output" / f"youtube-description{sfx}.txt")
+    synthetic = args.variant != "real"          # only the cloned narration needs the AI disclosure
 
     from googleapiclient.http import MediaFileUpload
     yt = youtube_client()
@@ -79,7 +84,7 @@ def main():
         "snippet": {"title": title, "description": body, "tags": tags, "categoryId": "27",       # 27 = Education
                     "defaultLanguage": "en", "defaultAudioLanguage": "en"},
         "status": {"privacyStatus": "private", "selfDeclaredMadeForKids": False,
-                   "containsSyntheticMedia": True, "embeddable": True, "license": "youtube"},
+                   "containsSyntheticMedia": synthetic, "embeddable": True, "license": "youtube"},
     }, media_body=MediaFileUpload(str(video), chunksize=8 * 1024 * 1024, resumable=True, mimetype="video/mp4"))
     response = None
     while response is None:
@@ -93,7 +98,7 @@ def main():
     if thumb.exists():
         yt.thumbnails().set(videoId=vid, media_body=MediaFileUpload(str(thumb), mimetype="image/png")).execute()
         print("Thumbnail set")
-    srt = project / "build" / "captions.srt"
+    srt = project / f"build{sfx}" / "captions.srt"
     if srt.exists():
         yt.captions().insert(part="snippet", body={"snippet": {"videoId": vid, "language": "en", "name": "English"}},
                              media_body=MediaFileUpload(str(srt), mimetype="application/octet-stream")).execute()
@@ -101,7 +106,7 @@ def main():
 
     record = {"video_id": vid, "url": f"https://youtu.be/{vid}", "file": video.name, "title": title,
               "privacy": "private", "uploaded_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-    (project / "output" / "upload.json").write_text(json.dumps(record, indent=1))
+    (project / "output" / f"upload{sfx}.json").write_text(json.dumps(record, indent=1))
     print("\nNext: open YouTube Studio -> Content -> this video -> check 'Copyright' shows no issues -> Publish.")
 
 
