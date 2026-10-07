@@ -166,10 +166,14 @@ def main():
     ap.add_argument("--facts", help="facts.py with check() -> [(claim, ok)]")
     ap.add_argument("--video", help="defaults to the newest daa-*.mp4 in output/")
     ap.add_argument("--minutes", default="6,8", help="target length range, e.g. 6,8")
+    ap.add_argument("--variant", default="", help="check daa-*-<variant>.mp4 with build-<variant>/ captions")
     args = ap.parse_args()
     p = Path(args.project)
-    video = Path(args.video) if args.video else sorted((p / "output").glob("daa-*.mp4"), key=lambda f: f.stat().st_mtime)[-1]
-    desc_path = p / "output" / "youtube-description.txt"
+    sfx = f"-{args.variant}" if args.variant else ""
+    candidates = [f for f in (p / "output").glob("daa-*.mp4") if f.stem.endswith(sfx) and
+                  (sfx or not any(f.stem.endswith(x) for x in ("-real", "-face")))]
+    video = Path(args.video) if args.video else sorted(candidates, key=lambda f: f.stat().st_mtime)[-1]
+    desc_path = p / "output" / f"youtube-description{sfx}.txt"
     desc = desc_path.read_text() if desc_path.exists() else ""
     rows = []
 
@@ -181,7 +185,7 @@ def main():
     dur = check_technical(video, (lo, hi), report)
     check_audio(video, report)
     check_picture(video, dur, report)
-    check_captions(p / "build" / "captions.srt", report)
+    check_captions(p / f"build{sfx}" / "captions.srt", report)
     check_facts(args.facts, report)
     check_rights(p, desc, report)
     if desc:
@@ -195,8 +199,8 @@ def main():
     lines = [f"# QA report: {video.name}", "", f"**Verdict: {verdict}** ({len(rows) - len(fails) - len(warns)} pass, "
              f"{len(warns)} notes, {len(fails)} fail)", "", "| Area | Check | Result | Detail |", "|---|---|---|---|"]
     lines += [f"| {a} | {c} | {s} | {d} |" for a, c, s, d in rows]
-    (p / "output" / "qa-report.md").write_text("\n".join(lines) + "\n")
-    print(f"\n{verdict}  ->  {p / 'output' / 'qa-report.md'}")
+    (p / "output" / f"qa-report{sfx}.md").write_text("\n".join(lines) + "\n")
+    print(f"\n{verdict}  ->  {p / 'output' / f'qa-report{sfx}.md'}")
     sys.exit(1 if fails else 0)
 
 

@@ -221,7 +221,8 @@ class Video(Scene):
         g = VGroup(series, by).arrange(DOWN, buff=0.25).move_to(STAGE + UP * 0.4)
         self.show(g, anim=FadeIn, run_time=0.6, shift=UP * 0.2)
         self.at(b, 1)
-        self.say("Hi! I'm Algo")
+        # with the real voice you introduce yourself, so Algo just greets the students
+        self.say("Hi, students!" if os.environ.get("VARIANT") == "real" else "Hi! I'm Algo")
         guide = label("your guide, step by step", 30, ACCENT).next_to(g, DOWN, buff=0.4)
         self.show(guide, run_time=0.5)
 

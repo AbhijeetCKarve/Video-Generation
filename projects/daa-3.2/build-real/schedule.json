@@ -1,0 +1,1278 @@
+{
+ "title": "8-Queens & Graph Coloring",
+ "code": "3.2",
+ "unit": "III",
+ "summary": "How do you place 8 queens on a chessboard so that none attack each other, and how do you schedule exams so no student has a clash? Both are solved with backtracking. We build the 4-queens state space tree step by step, watch the full 8-queens search, and colour an exam timetable graph with 3 colours, then cover the algorithms (Place, NQueens, mColoring), their time complexity, a second worked example (is m = 2 enough?) and exam tips.",
+ "hashtags": "#DAA #Backtracking #NQueens #GraphColoring #Algorithms #DESPU",
+ "tags": "daa, design and analysis of algorithms, backtracking, 8 queens problem, n queens, graph coloring, m coloring, state space tree, chromatic number, daa unit 3, etcs329",
+ "intro": 3.2,
+ "beats": [
+  {
+   "key": "hook_board",
+   "num": "01",
+   "mood": "curious",
+   "start": 3.6,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/01.wav",
+   "dur": 7.954,
+   "end": 12.104,
+   "section": null,
+   "music": "bright",
+   "phrases": [
+    {
+     "text": "Imagine an ordinary chessboard and eight queens.",
+     "start": 3.6,
+     "end": 7.78
+    },
+    {
+     "text": "How do you place all eight so that no queen can attack another?",
+     "start": 7.78,
+     "end": 11.554
+    }
+   ]
+  },
+  {
+   "key": "hook_count",
+   "num": "02",
+   "mood": "excited",
+   "start": 12.104,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/02.wav",
+   "dur": 6.944,
+   "end": 19.598,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "There are more than four billion ways to put eight queens on sixty-four squares.",
+     "start": 12.104,
+     "end": 17.084
+    },
+    {
+     "text": "Only ninety-two of them work!",
+     "start": 17.084,
+     "end": 19.048
+    }
+   ]
+  },
+  {
+   "key": "hook_mascot",
+   "num": "03",
+   "mood": "warm",
+   "start": 19.598,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/03.wav",
+   "dur": 7.291,
+   "end": 27.439,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Welcome to the DAA series.",
+     "start": 19.598,
+     "end": 21.268
+    },
+    {
+     "text": "I'm Abhijeet Karve, and I'll guide you through every algorithm, step by step.",
+     "start": 21.268,
+     "end": 26.889
+    }
+   ]
+  },
+  {
+   "key": "syllabus",
+   "num": "04",
+   "mood": "explain",
+   "start": 27.889,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/04.wav",
+   "dur": 8.52,
+   "end": 36.959,
+   "section": "Today's plan",
+   "music": "calm",
+   "phrases": [
+    {
+     "text": "This is Unit Three, Backtracking.",
+     "start": 27.889,
+     "end": 30.189
+    },
+    {
+     "text": "Today we solve two classic problems: the eight queens problem, and graph coloring.",
+     "start": 30.189,
+     "end": 36.409
+    }
+   ]
+  },
+  {
+   "key": "exam",
+   "num": "05",
+   "mood": "explain",
+   "start": 36.959,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/05.wav",
+   "dur": 5.228,
+   "end": 42.736,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Both are favourite exam questions,",
+     "start": 36.959,
+     "end": 39.169
+    },
+    {
+     "text": "so stay till the end for the exam tips.",
+     "start": 39.169,
+     "end": 42.187
+    }
+   ]
+  },
+  {
+   "key": "recap1",
+   "num": "06",
+   "mood": "explain",
+   "start": 43.186,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/06.wav",
+   "dur": 4.318,
+   "end": 48.054,
+   "section": "Backtracking \u00b7 Quick recap",
+   "music": "calm",
+   "phrases": [
+    {
+     "text": "Quick recap.",
+     "start": 43.186,
+     "end": 43.996
+    },
+    {
+     "text": "Backtracking builds the answer one choice at a time.",
+     "start": 43.996,
+     "end": 47.504
+    }
+   ]
+  },
+  {
+   "key": "recap2",
+   "num": "07",
+   "mood": "explain",
+   "start": 48.054,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/07.wav",
+   "dur": 9.271,
+   "end": 57.876,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "After every choice, we check a bounding function.",
+     "start": 48.054,
+     "end": 52.304
+    },
+    {
+     "text": "If the partial answer can never become a solution, we stop and go back.",
+     "start": 52.304,
+     "end": 57.325
+    }
+   ]
+  },
+  {
+   "key": "recap3",
+   "num": "08",
+   "mood": "warm",
+   "start": 57.876,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/08.wav",
+   "dur": 8.78,
+   "end": 67.205,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "That is why backtracking is so much faster than trying everything.",
+     "start": 57.876,
+     "end": 62.526
+    },
+    {
+     "text": "Whole branches of the search tree are cut away early.",
+     "start": 62.526,
+     "end": 66.656
+    }
+   ]
+  },
+  {
+   "key": "q_rules",
+   "num": "09",
+   "mood": "explain",
+   "start": 67.655,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/09.wav",
+   "dur": 7.352,
+   "end": 75.557,
+   "section": "8-Queens \u00b7 The rules",
+   "music": "calm",
+   "phrases": [
+    {
+     "text": "First, the rules.",
+     "start": 67.655,
+     "end": 68.905
+    },
+    {
+     "text": "A queen attacks every square in her row, her column, and both diagonals.",
+     "start": 68.905,
+     "end": 75.007
+    }
+   ]
+  },
+  {
+   "key": "q_explicit",
+   "num": "10",
+   "mood": "explain",
+   "start": 75.557,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/10.wav",
+   "dur": 5.466,
+   "end": 81.573,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Since two queens can never share a row,",
+     "start": 75.557,
+     "end": 78.137
+    },
+    {
+     "text": "we simply put queen k in row k.",
+     "start": 78.137,
+     "end": 81.023
+    }
+   ]
+  },
+  {
+   "key": "q_vector",
+   "num": "11",
+   "mood": "explain",
+   "start": 81.573,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/11.wav",
+   "dur": 7.449,
+   "end": 89.572,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "So the whole answer is just a list x,",
+     "start": 81.573,
+     "end": 84.403
+    },
+    {
+     "text": "where x of k is the column of the queen in row k.",
+     "start": 84.403,
+     "end": 89.022
+    }
+   ]
+  },
+  {
+   "key": "q_implicit",
+   "num": "12",
+   "mood": "emphatic",
+   "start": 89.572,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/12.wav",
+   "dur": 8.792,
+   "end": 98.914,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Now the real test.",
+     "start": 89.572,
+     "end": 90.782
+    },
+    {
+     "text": "A new queen is safe only if no earlier queen is in the same column, or on the same diagonal.",
+     "start": 90.782,
+     "end": 98.364
+    }
+   ]
+  },
+  {
+   "key": "q_diag",
+   "num": "13",
+   "mood": "explain",
+   "start": 98.914,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/13.wav",
+   "dur": 7.062,
+   "end": 106.526,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Two queens share a diagonal when the difference of their columns",
+     "start": 98.914,
+     "end": 103.433
+    },
+    {
+     "text": "equals the difference of their rows.",
+     "start": 103.433,
+     "end": 105.976
+    }
+   ]
+  },
+  {
+   "key": "q_place",
+   "num": "14",
+   "mood": "explain",
+   "start": 106.526,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/14.wav",
+   "dur": 11.22,
+   "end": 118.295,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "This check is the function Place of k and i.",
+     "start": 106.526,
+     "end": 110.986
+    },
+    {
+     "text": "It returns true only if queen k can safely go in column i.",
+     "start": 110.986,
+     "end": 117.746
+    }
+   ]
+  },
+  {
+   "key": "t_intro",
+   "num": "15",
+   "mood": "curious",
+   "start": 118.745,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/15.wav",
+   "dur": 7.921,
+   "end": 127.216,
+   "section": "4-Queens \u00b7 State space tree",
+   "music": "pulse",
+   "phrases": [
+    {
+     "text": "Let's see it in action on a smaller board, with four queens,",
+     "start": 118.745,
+     "end": 123.355
+    },
+    {
+     "text": "and draw the state space tree as we go.",
+     "start": 123.355,
+     "end": 126.666
+    }
+   ]
+  },
+  {
+   "key": "t_q1",
+   "num": "16",
+   "mood": "warm",
+   "start": 127.216,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/16.wav",
+   "dur": 4.829,
+   "end": 132.595,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Queen one goes in column one.",
+     "start": 127.216,
+     "end": 129.826
+    },
+    {
+     "text": "That is the first node of our tree.",
+     "start": 129.826,
+     "end": 132.045
+    }
+   ]
+  },
+  {
+   "key": "t_q2",
+   "num": "17",
+   "mood": "explain",
+   "start": 132.595,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/17.wav",
+   "dur": 8.213,
+   "end": 141.358,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "For queen two, columns one and two are attacked, so those branches die.",
+     "start": 132.595,
+     "end": 139.155
+    },
+    {
+     "text": "Column three is safe.",
+     "start": 139.155,
+     "end": 140.808
+    }
+   ]
+  },
+  {
+   "key": "t_dead",
+   "num": "18",
+   "mood": "emphatic",
+   "start": 141.358,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/18.wav",
+   "dur": 4.722,
+   "end": 146.63,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "But now look at row three.",
+     "start": 141.358,
+     "end": 143.108
+    },
+    {
+     "text": "Every column is attacked. Dead end!",
+     "start": 143.108,
+     "end": 146.08
+    }
+   ]
+  },
+  {
+   "key": "t_back",
+   "num": "19",
+   "mood": "explain",
+   "start": 146.63,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/19.wav",
+   "dur": 5.37,
+   "end": 152.551,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "So we backtrack.",
+     "start": 146.63,
+     "end": 147.69
+    },
+    {
+     "text": "Queen two moves to column four, and queen three finds column two.",
+     "start": 147.69,
+     "end": 152.0
+    }
+   ]
+  },
+  {
+   "key": "t_dead2",
+   "num": "20",
+   "mood": "emphatic",
+   "start": 152.551,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/20.wav",
+   "dur": 5.959,
+   "end": 159.059,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Row four is completely blocked again.",
+     "start": 152.551,
+     "end": 155.431
+    },
+    {
+     "text": "We backtrack all the way to queen one.",
+     "start": 155.431,
+     "end": 158.51
+    }
+   ]
+  },
+  {
+   "key": "t_q1b",
+   "num": "21",
+   "mood": "warm",
+   "start": 159.059,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/21.wav",
+   "dur": 7.04,
+   "end": 166.649,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Queen one moves to column two.",
+     "start": 159.059,
+     "end": 161.469
+    },
+    {
+     "text": "Queen two goes to column four,",
+     "start": 161.469,
+     "end": 163.752
+    },
+    {
+     "text": "and queen three to column one.",
+     "start": 163.752,
+     "end": 166.099
+    }
+   ]
+  },
+  {
+   "key": "t_solved",
+   "num": "22",
+   "mood": "excited",
+   "start": 166.649,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/22.wav",
+   "dur": 7.32,
+   "end": 174.519,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "And queen four fits in column three.",
+     "start": 166.649,
+     "end": 169.759
+    },
+    {
+     "text": "Solved! The answer is two, four, one, three.",
+     "start": 169.759,
+     "end": 173.969
+    }
+   ]
+  },
+  {
+   "key": "t_tree",
+   "num": "23",
+   "mood": "explain",
+   "start": 174.519,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/23.wav",
+   "dur": 6.475,
+   "end": 181.544,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Look at the tree.",
+     "start": 174.519,
+     "end": 175.669
+    },
+    {
+     "text": "The red nodes were killed by the bounding function, so we never searched below them.",
+     "start": 175.669,
+     "end": 180.994
+    }
+   ]
+  },
+  {
+   "key": "e_lapse",
+   "num": "24",
+   "mood": "excited",
+   "start": 181.994,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/24.wav",
+   "dur": 4.282,
+   "end": 196.994,
+   "section": "8-Queens \u00b7 Full board",
+   "music": "pulse",
+   "phrases": [
+    {
+     "text": "Now watch the same algorithm on the full eight by eight board.",
+     "start": 181.994,
+     "end": 186.276
+    }
+   ]
+  },
+  {
+   "key": "e_result",
+   "num": "25",
+   "mood": "explain",
+   "start": 196.994,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/25.wav",
+   "dur": 9.547,
+   "end": 207.091,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "After one hundred and thirteen placements, it finds the first solution:",
+     "start": 196.994,
+     "end": 202.534
+    },
+    {
+     "text": "one, five, eight, six, three, seven, two, four.",
+     "start": 202.534,
+     "end": 206.541
+    }
+   ]
+  },
+  {
+   "key": "e_count",
+   "num": "26",
+   "mood": "explain",
+   "start": 207.091,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/26.wav",
+   "dur": 9.508,
+   "end": 217.149,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "If we keep going, backtracking finds all ninety-two solutions,",
+     "start": 207.091,
+     "end": 212.321
+    },
+    {
+     "text": "while checking only a tiny part of those four billion boards.",
+     "start": 212.321,
+     "end": 216.599
+    }
+   ]
+  },
+  {
+   "key": "a_code",
+   "num": "27",
+   "mood": "explain",
+   "start": 217.599,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/27.wav",
+   "dur": 6.841,
+   "end": 224.99,
+   "section": "The algorithm",
+   "music": "quiet",
+   "phrases": [
+    {
+     "text": "Here is the algorithm.",
+     "start": 217.599,
+     "end": 219.845
+    },
+    {
+     "text": "N Queens of k tries every column i for row k.",
+     "start": 219.845,
+     "end": 224.44
+    }
+   ]
+  },
+  {
+   "key": "a_code2",
+   "num": "28",
+   "mood": "explain",
+   "start": 224.99,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/28.wav",
+   "dur": 12.464,
+   "end": 238.004,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "If Place says it is safe, we set x of k to i.",
+     "start": 224.99,
+     "end": 228.62
+    },
+    {
+     "text": "If k equals n, we print the solution, otherwise we move on to row k plus one.",
+     "start": 228.62,
+     "end": 237.454
+    }
+   ]
+  },
+  {
+   "key": "a_complex",
+   "num": "29",
+   "mood": "explain",
+   "start": 238.004,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/29.wav",
+   "dur": 7.815,
+   "end": 246.368,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "In the worst case the tree has about n factorial leaves,",
+     "start": 238.004,
+     "end": 242.253
+    },
+    {
+     "text": "so the time complexity is order of n factorial.",
+     "start": 242.253,
+     "end": 245.819
+    }
+   ]
+  },
+  {
+   "key": "g_intro",
+   "num": "30",
+   "mood": "curious",
+   "start": 246.818,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/30.wav",
+   "dur": 5.398,
+   "end": 252.766,
+   "section": "Graph coloring",
+   "music": "calm",
+   "phrases": [
+    {
+     "text": "Now our second problem.",
+     "start": 246.818,
+     "end": 249.098
+    },
+    {
+     "text": "Can you schedule five exams in just three time slots?",
+     "start": 249.098,
+     "end": 252.216
+    }
+   ]
+  },
+  {
+   "key": "g_graph",
+   "num": "31",
+   "mood": "explain",
+   "start": 252.766,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/31.wav",
+   "dur": 9.315,
+   "end": 262.632,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Each subject is a vertex.",
+     "start": 252.766,
+     "end": 254.806
+    },
+    {
+     "text": "An edge means some students take both subjects, so those two exams cannot share a slot.",
+     "start": 254.806,
+     "end": 262.081
+    }
+   ]
+  },
+  {
+   "key": "g_def",
+   "num": "32",
+   "mood": "explain",
+   "start": 262.632,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/32.wav",
+   "dur": 8.691,
+   "end": 271.873,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "This is graph coloring.",
+     "start": 262.632,
+     "end": 264.192
+    },
+    {
+     "text": "Give every vertex one of m colors, so that no two adjacent vertices get the same color.",
+     "start": 264.192,
+     "end": 271.323
+    }
+   ]
+  },
+  {
+   "key": "g_chromatic",
+   "num": "33",
+   "mood": "explain",
+   "start": 271.873,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/33.wav",
+   "dur": 4.816,
+   "end": 277.238,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "The smallest such m is called the chromatic number of the graph.",
+     "start": 271.873,
+     "end": 276.689
+    }
+   ]
+  },
+  {
+   "key": "g_x",
+   "num": "34",
+   "mood": "explain",
+   "start": 277.238,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/34.wav",
+   "dur": 8.971,
+   "end": 286.76,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Just like the queens,",
+     "start": 277.238,
+     "end": 278.858
+    },
+    {
+     "text": "x of k is the color of vertex k, and we fill the vertices one by one.",
+     "start": 278.858,
+     "end": 286.209
+    }
+   ]
+  },
+  {
+   "key": "g_v1",
+   "num": "35",
+   "mood": "warm",
+   "start": 287.21,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/35.wav",
+   "dur": 5.583,
+   "end": 293.342,
+   "section": "Graph coloring \u00b7 Step by step",
+   "music": "pulse",
+   "phrases": [
+    {
+     "text": "Here m is three: red, green and blue.",
+     "start": 287.21,
+     "end": 291.07
+    },
+    {
+     "text": "Vertex one gets red.",
+     "start": 291.07,
+     "end": 292.793
+    }
+   ]
+  },
+  {
+   "key": "g_v2",
+   "num": "36",
+   "mood": "explain",
+   "start": 293.342,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/36.wav",
+   "dur": 5.791,
+   "end": 299.683,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Vertex two touches vertex one, so red is not allowed.",
+     "start": 293.342,
+     "end": 297.812
+    },
+    {
+     "text": "It gets green.",
+     "start": 297.812,
+     "end": 299.133
+    }
+   ]
+  },
+  {
+   "key": "g_v3",
+   "num": "37",
+   "mood": "explain",
+   "start": 299.683,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/37.wav",
+   "dur": 7.077,
+   "end": 307.31,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Vertex three touches both one and two.",
+     "start": 299.683,
+     "end": 303.283
+    },
+    {
+     "text": "Red and green are taken, so it gets blue.",
+     "start": 303.283,
+     "end": 306.76
+    }
+   ]
+  },
+  {
+   "key": "g_v4",
+   "num": "38",
+   "mood": "warm",
+   "start": 307.31,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/38.wav",
+   "dur": 4.406,
+   "end": 312.266,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Vertex four only touches three and five.",
+     "start": 307.31,
+     "end": 310.54
+    },
+    {
+     "text": "Red is fine.",
+     "start": 310.54,
+     "end": 311.716
+    }
+   ]
+  },
+  {
+   "key": "g_dead",
+   "num": "39",
+   "mood": "emphatic",
+   "start": 312.266,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/39.wav",
+   "dur": 6.728,
+   "end": 319.544,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Now vertex five touches green, blue and red.",
+     "start": 312.266,
+     "end": 316.586
+    },
+    {
+     "text": "No color is left. Dead end!",
+     "start": 316.586,
+     "end": 318.994
+    }
+   ]
+  },
+  {
+   "key": "g_back",
+   "num": "40",
+   "mood": "explain",
+   "start": 319.544,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/40.wav",
+   "dur": 4.682,
+   "end": 324.777,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "So we backtrack to vertex four,",
+     "start": 319.544,
+     "end": 321.734
+    },
+    {
+     "text": "and try its next color, green.",
+     "start": 321.734,
+     "end": 324.226
+    }
+   ]
+  },
+  {
+   "key": "g_done",
+   "num": "41",
+   "mood": "excited",
+   "start": 324.777,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/41.wav",
+   "dur": 5.374,
+   "end": 330.7,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Now vertex five can be red.",
+     "start": 324.777,
+     "end": 326.787
+    },
+    {
+     "text": "All five exams fit into three slots!",
+     "start": 326.787,
+     "end": 330.151
+    }
+   ]
+  },
+  {
+   "key": "g_code",
+   "num": "42",
+   "mood": "explain",
+   "start": 331.15,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/42.wav",
+   "dur": 7.68,
+   "end": 339.38,
+   "section": "Graph coloring \u00b7 Algorithm",
+   "music": "quiet",
+   "phrases": [
+    {
+     "text": "In code, Next Value of k finds the next color",
+     "start": 331.15,
+     "end": 335.09
+    },
+    {
+     "text": "that no adjacent vertex is already using.",
+     "start": 335.09,
+     "end": 338.83
+    }
+   ]
+  },
+  {
+   "key": "g_complex",
+   "num": "43",
+   "mood": "explain",
+   "start": 339.38,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/43.wav",
+   "dur": 13.033,
+   "end": 352.963,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "There are m to the power n possible colorings,",
+     "start": 339.38,
+     "end": 343.78
+    },
+    {
+     "text": "and each check takes order n time, so the worst case is order of n times m to the n.",
+     "start": 343.78,
+     "end": 352.413
+    }
+   ]
+  },
+  {
+   "key": "w_intro",
+   "num": "44",
+   "mood": "curious",
+   "start": 353.413,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/44.wav",
+   "dur": 7.021,
+   "end": 360.984,
+   "section": "Worked example \u00b7 Is m = 2 enough?",
+   "music": "pulse",
+   "phrases": [
+    {
+     "text": "Let's try one more example, the kind you will see in exams.",
+     "start": 353.413,
+     "end": 357.283
+    },
+    {
+     "text": "Can this graph be colored with only two colors?",
+     "start": 357.283,
+     "end": 360.434
+    }
+   ]
+  },
+  {
+   "key": "w_tree",
+   "num": "45",
+   "mood": "explain",
+   "start": 360.984,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/45.wav",
+   "dur": 9.345,
+   "end": 370.879,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "We draw the state space tree with m equal to two.",
+     "start": 360.984,
+     "end": 365.314
+    },
+    {
+     "text": "Vertex one takes color one, so vertex two must take color two.",
+     "start": 365.314,
+     "end": 370.329
+    }
+   ]
+  },
+  {
+   "key": "w_dead",
+   "num": "46",
+   "mood": "emphatic",
+   "start": 370.879,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/46.wav",
+   "dur": 9.211,
+   "end": 380.64,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Vertex three touches both of them, so both colors die.",
+     "start": 370.879,
+     "end": 375.489
+    },
+    {
+     "text": "We backtrack, and every other branch dies the same way.",
+     "start": 375.489,
+     "end": 380.09
+    }
+   ]
+  },
+  {
+   "key": "w_fail",
+   "num": "47",
+   "mood": "explain",
+   "start": 380.64,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/47.wav",
+   "dur": 8.902,
+   "end": 390.092,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "The whole tree is dead, so two colors are not enough.",
+     "start": 380.64,
+     "end": 384.85
+    },
+    {
+     "text": "This graph has a triangle, and a triangle always needs three colors.",
+     "start": 384.85,
+     "end": 389.542
+    }
+   ]
+  },
+  {
+   "key": "w_m3",
+   "num": "48",
+   "mood": "excited",
+   "start": 390.542,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/48.wav",
+   "dur": 6.918,
+   "end": 398.01,
+   "section": "Worked example \u00b7 Now m = 3",
+   "music": "pulse",
+   "phrases": [
+    {
+     "text": "With m equal to three, vertex three takes color three,",
+     "start": 390.542,
+     "end": 394.516
+    },
+    {
+     "text": "and vertex four takes color two. Solved!",
+     "start": 394.516,
+     "end": 397.46
+    }
+   ]
+  },
+  {
+   "key": "w_answer",
+   "num": "49",
+   "mood": "warm",
+   "start": 398.01,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/49.wav",
+   "dur": 8.61,
+   "end": 407.17,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "So the chromatic number of this graph is three.",
+     "start": 398.01,
+     "end": 400.97
+    },
+    {
+     "text": "In the exam, draw the tree exactly like this, with the dead nodes crossed out.",
+     "start": 400.97,
+     "end": 406.62
+    }
+   ]
+  },
+  {
+   "key": "cmp",
+   "num": "50",
+   "mood": "explain",
+   "start": 407.62,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/50.wav",
+   "dur": 9.893,
+   "end": 418.063,
+   "section": "The common pattern",
+   "music": "calm",
+   "phrases": [
+    {
+     "text": "Notice the pattern.",
+     "start": 407.62,
+     "end": 408.96
+    },
+    {
+     "text": "Both problems use the same control abstraction: choose, check the bound, go deeper, and backtrack.",
+     "start": 408.96,
+     "end": 417.513
+    }
+   ]
+  },
+  {
+   "key": "tip1",
+   "num": "51",
+   "mood": "emphatic",
+   "start": 418.513,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/51.wav",
+   "dur": 8.644,
+   "end": 427.707,
+   "section": "Exam tips",
+   "music": "pulse",
+   "phrases": [
+    {
+     "text": "Exam tip one.",
+     "start": 418.513,
+     "end": 419.823
+    },
+    {
+     "text": "You will often be asked to draw the state space tree for four queens. Mark the killed nodes clearly.",
+     "start": 419.823,
+     "end": 427.157
+    }
+   ]
+  },
+  {
+   "key": "tip2",
+   "num": "52",
+   "mood": "emphatic",
+   "start": 427.707,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/52.wav",
+   "dur": 6.479,
+   "end": 434.736,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Exam tip two.",
+     "start": 427.707,
+     "end": 428.977
+    },
+    {
+     "text": "Write the Place function, and explain the diagonal condition in words.",
+     "start": 428.977,
+     "end": 434.186
+    }
+   ]
+  },
+  {
+   "key": "tip3",
+   "num": "53",
+   "mood": "emphatic",
+   "start": 434.736,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/53.wav",
+   "dur": 10.027,
+   "end": 445.313,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "Exam tip three.",
+     "start": 434.736,
+     "end": 436.286
+    },
+    {
+     "text": "For graph coloring, show the color array at every step, and point out where you backtrack.",
+     "start": 436.286,
+     "end": 444.763
+    }
+   ]
+  },
+  {
+   "key": "recap",
+   "num": "54",
+   "mood": "warm",
+   "start": 445.763,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/54.wav",
+   "dur": 7.202,
+   "end": 453.515,
+   "section": "Recap",
+   "music": "bright",
+   "phrases": [
+    {
+     "text": "To recap:",
+     "start": 445.763,
+     "end": 446.411
+    },
+    {
+     "text": "backtracking builds a solution step by step,",
+     "start": 446.411,
+     "end": 449.423
+    },
+    {
+     "text": "and kills a branch the moment it breaks a rule.",
+     "start": 449.423,
+     "end": 452.965
+    }
+   ]
+  },
+  {
+   "key": "next",
+   "num": "55",
+   "mood": "warm",
+   "start": 453.515,
+   "voice": "/home/user/Video-Generation/projects/daa-3.2/voice-real/55.wav",
+   "dur": 6.653,
+   "end": 460.718,
+   "section": null,
+   "music": null,
+   "phrases": [
+    {
+     "text": "In the next video, we use the same idea for sum of subsets and the Hamiltonian cycle.",
+     "start": 453.515,
+     "end": 459.185
+    },
+    {
+     "text": "See you there!",
+     "start": 459.185,
+     "end": 460.168
+    }
+   ]
+  }
+ ],
+ "end_card": 461.018,
+ "total": 466.018
+}
