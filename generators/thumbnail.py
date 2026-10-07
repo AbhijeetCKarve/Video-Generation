@@ -63,14 +63,34 @@ def board(n, size):
     return img
 
 
-def make(n, author, out, tag="DAA  \u00b7  BACKTRACKING"):
+def graph_card(size=300):
+    """Small 3-coloured graph (the graph-coloring example) on a white card."""
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle([0, 0, size - 1, size - 1], radius=28, fill="#FFFFFF")
+    s = size / 300
+    pos = {1: (70, 80), 2: (230, 80), 3: (150, 150), 4: (70, 225), 5: (230, 225)}
+    pos = {k: (x * s, y * s) for k, (x, y) in pos.items()}
+    edges = [(1, 2), (1, 3), (2, 3), (2, 5), (3, 4), (3, 5), (4, 5)]
+    colors = {1: "#EF4444", 2: "#22C55E", 3: "#3B82F6", 4: "#22C55E", 5: "#EF4444"}
+    for a, b in edges:
+        d.line([pos[a], pos[b]], fill="#334155", width=int(7 * s))
+    r = 30 * s
+    for k, (x, y) in pos.items():
+        d.ellipse([x - r, y - r, x + r, y + r], fill=colors[k], outline="#0B1220", width=int(5 * s))
+        d.text((x, y), str(k), font=font("Inter:extrabold", int(30 * s)), fill="#FFFFFF", anchor="mm")
+    return img
+
+
+def make(n, author, out, tag="DAA  \u00b7  BACKTRACKING", title=("N-QUEENS", "PROBLEM"),
+         subtitle="Solved step by step", credit="PREPARED BY", tag_color=BLUE, visual="board"):
     img = Image.new("RGB", (W, H))
     px = ImageDraw.Draw(img)
     for y in range(H):                            # vertical gradient background
         t = y / H
         px.line([(0, y), (W, y)], fill=tuple(int(a + (b - a) * t) for a, b in zip(BG_TOP, BG_BOTTOM)))
 
-    # board on the right, tilted slightly, with a soft blue glow behind it
+    # board on the right, tilted slightly, with a soft glow behind it
     b = board(n, 470)
     glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ImageDraw.Draw(glow).rounded_rectangle([730, 105, 730 + b.width + 50, 105 + b.height + 50],
@@ -80,29 +100,35 @@ def make(n, author, out, tag="DAA  \u00b7  BACKTRACKING"):
     frame.paste(b, (8, 8), b)
     frame = frame.rotate(-4, resample=Image.BICUBIC, expand=True)
     img.paste(frame, (735, 95), frame)
+    if "graph" in visual:                         # the second topic, overlapping the board's corner
+        g = graph_card(250).rotate(5, resample=Image.BICUBIC, expand=True)
+        shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        ImageDraw.Draw(shadow).rounded_rectangle([655, 420, 655 + 255, 420 + 255], radius=30, fill=(0, 0, 0, 140))
+        img.paste(shadow.filter(ImageFilter.GaussianBlur(14)), (0, 0), shadow.filter(ImageFilter.GaussianBlur(14)))
+        img.paste(g, (640, 400), g)
 
     d = ImageDraw.Draw(img)
     x = 64
     # topic pill
     pf = font("Inter:extrabold", 30)
-    label = tag
-    w = d.textlength(label, font=pf)
-    d.rounded_rectangle([x, 58, x + w + 44, 112], radius=27, fill=BLUE)
-    d.text((x + 22, 85), label, font=pf, fill=WHITE, anchor="lm")
+    w = d.textlength(tag, font=pf)
+    d.rounded_rectangle([x, 58, x + w + 44, 112], radius=27, fill=tag_color)
+    d.text((x + 22, 85), tag, font=pf, fill=WHITE, anchor="lm")
 
-    # title: two huge lines
-    t1 = fit(d, "N-QUEENS", "Inter Display:black", 170, 660)
-    d.text((x - 4, 130), "N-QUEENS", font=t1, fill=WHITE, stroke_width=2, stroke_fill="#0B1220")
-    t2 = fit(d, "PROBLEM", "Inter Display:black", 170, 660)
-    d.text((x - 4, 300), "PROBLEM", font=t2, fill=YELLOW, stroke_width=2, stroke_fill="#0B1220")
-
-    sub = font("Inter:semibold", 40)
-    d.text((x, 485), "Solved step by step", font=sub, fill="#CBD5E1")
+    # title: up to two huge lines (white, then yellow)
+    max_w = 560 if "graph" in visual else 660
+    y = 130
+    for i, line in enumerate(title[:2]):
+        f = fit(d, line, "Inter Display:black", 170 if len(title) == 2 else 190, max_w)
+        d.text((x - 4, y), line, font=f, fill=WHITE if i == 0 else YELLOW, stroke_width=2, stroke_fill="#0B1220")
+        y += int(f.size * 1.0) + 8
+    if subtitle:
+        d.text((x, max(y + 14, 470)), subtitle, font=font("Inter:semibold", 40), fill="#CBD5E1")
 
     # author strip
     d.rectangle([x, 580, x + 8, 662], fill=YELLOW)
-    d.text((x + 28, 578), "PREPARED BY", font=font("Inter:bold", 26), fill=MUTED)
-    d.text((x + 28, 608), author, font=fit(d, author, "Inter:extrabold", 50, 620), fill=WHITE)
+    d.text((x + 28, 578), credit, font=font("Inter:bold", 26), fill=MUTED)
+    d.text((x + 28, 608), author, font=fit(d, author, "Inter:extrabold", 50, 560), fill=WHITE)
 
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -113,11 +139,17 @@ def make(n, author, out, tag="DAA  \u00b7  BACKTRACKING"):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--author", required=True)
-    ap.add_argument("--n", type=int, default=6)
+    ap.add_argument("--n", type=int, default=6, help="board size of the picture")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--tag", default="DAA  \u00b7  BACKTRACKING", help="text in the blue pill")
+    ap.add_argument("--tag", default="DAA  \u00b7  BACKTRACKING", help="text in the pill")
+    ap.add_argument("--tag-color", default=BLUE, help="pill colour (e.g. the unit colour)")
+    ap.add_argument("--title", default="N-QUEENS|PROBLEM", help="one or two title lines, split with |")
+    ap.add_argument("--subtitle", default="Solved step by step")
+    ap.add_argument("--credit", default="PREPARED BY", help="label above the author name")
+    ap.add_argument("--visual", default="board", choices=["board", "board+graph"])
     args = ap.parse_args()
-    out = make(args.n, args.author, args.out, args.tag)
+    out = make(args.n, args.author, args.out, args.tag, args.title.split("|"), args.subtitle, args.credit,
+               args.tag_color, args.visual)
     print(f"Wrote {out} ({out.stat().st_size / 1024:.0f} KB)")
 
 

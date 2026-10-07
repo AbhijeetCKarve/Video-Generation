@@ -248,6 +248,9 @@ def main():
     ap.add_argument("outdir", help="folder to write 01.wav, 01.json, ...")
     ap.add_argument("--reference", nargs="+", required=True, help="recording(s) of your voice")
     ap.add_argument("--clone-all", action="store_true", help="clone every line, even ones you read yourself")
+    ap.add_argument("--reference-script",
+                    help="script your reference recording follows, when it is not this video's script "
+                         "(your lines then serve only as voice samples and every line is cloned)")
     ap.add_argument("--speed", type=float, default=1.0, help="pace of cloned lines (default 1.0 = like you)")
     ap.add_argument("--steps", type=int, default=8, help="cloning quality steps (more = slower, smoother)")
     ap.add_argument("--polish-only", action="store_true",
@@ -307,9 +310,12 @@ def main():
         print(f"   {s['text']}")
 
     # 2. which script lines did you read? those become prompts (and real lines)
-    read = align(lines, segs)
+    ref_lines = parse_script(args.reference_script) if args.reference_script else lines
+    if args.reference_script:
+        args.clone_all = True                            # your lines belong to another script
+    read = align(ref_lines, segs)
     own = {}
-    for num, mood, phrases in lines:
+    for num, mood, phrases in ref_lines:
         if num in read:
             a, b, score = read[num]
             gap = np.zeros(int(0.25 * SR), dtype="float32")
