@@ -287,6 +287,9 @@ def main():
     ap.add_argument("--steps", type=int, default=8, help="cloning quality steps (more = slower, smoother)")
     ap.add_argument("--only", type=int, action="append", help="(re)make just this line number, repeatable")
     ap.add_argument("--tries", type=int, default=1, help="takes per voice sample (more = better pick, slower)")
+    ap.add_argument("--max-prompts", type=int, default=0,
+                    help="use only this many of your lines as voice samples (the clearest 5-10 s ones, "
+                         "different moods first); 0 = all. Long references make cloning slow without it")
     ap.add_argument("--polish-only", action="store_true",
                     help="re-apply the clean-up to the saved raw takes (outdir/raw) without re-cloning")
     args = ap.parse_args()
@@ -364,6 +367,17 @@ def main():
             print(f"[{num}] you read this line (match {score:.0%})")
     if own:
         prompts = [(num, o["text"], o["audio"], o["mood"]) for num, o in own.items()]
+        if args.max_prompts and len(prompts) > args.max_prompts:
+            def fit(p):                                   # clear match, 5-10 s long
+                dur = len(p[2]) / SR
+                return own[p[0]]["score"] - 0.08 * max(0.0, 5 - dur, dur - 10)
+            ranked, picked = sorted(prompts, key=fit, reverse=True), []
+            for p in ranked:                              # one per mood first, then the next best
+                if p[3] not in {q[3] for q in picked}:
+                    picked.append(p)
+            picked += [p for p in ranked if p not in picked]
+            prompts = picked[:args.max_prompts]
+            print("Voice samples:", ", ".join(f"[{p[0]}] {p[3]} {len(p[2]) / SR:.1f}s" for p in prompts))
     else:                                                 # a free-form sample: use ~8 s chunks of it
         prompts, cur = [], []
         for s in segs:

@@ -72,7 +72,7 @@ def schedule(beats, sections, min_window, voice_dir, out, estimate=False, meta=N
         t += window
     end_card = t + 0.3
     data = {**(meta or {}), "intro": INTRO, "beats": rows, "end_card": round(end_card, 3),
-            "total": round(end_card + END_CARD, 3)}
+            "total": round(end_card + (meta or {}).get("end_secs", END_CARD), 3)}   # end_secs: room for YouTube's end screen
     Path(out).write_text(json.dumps(data, indent=1))
     print(f"Schedule: {len(rows)} beats, {data['total'] / 60:.1f} min" + (" (ESTIMATED)" if estimate else ""))
     return data
@@ -273,7 +273,7 @@ def youtube_description(sched, meta, out):
                 chapters[-1] = (t0, f"{prev} & {title}" if t0 > 0 else prev)
     lines = [f"{int(t // 60)}:{int(t % 60):02d} {name}" for t, name in chapters]
     text = f"""TITLE
-{meta['title']} | DAA Unit {meta['unit']} ({meta['code']}) | Backtracking Explained
+{meta['title']} | DAA Unit {meta['unit']} ({meta['code']}) | {meta.get('title_suffix', 'Backtracking Explained')}
 
 DESCRIPTION
 {meta.get('summary', '')}

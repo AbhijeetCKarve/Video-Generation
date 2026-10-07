@@ -82,6 +82,37 @@ def graph_card(size=300):
     return img
 
 
+def tree_card(w=490, h=470):
+    """A state space tree on a white card: dead branches crossed out in red, the answer path in green."""
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle([0, 0, w - 1, h - 1], radius=30, fill="#FFFFFF")
+    ys = [70, 185, 300, 410]
+    root = (w / 2, ys[0])
+    lv1 = [(w * x, ys[1]) for x in (0.2, 0.56, 0.86)]
+    nodes = [(root, None, "ok")] + [(p, root, k) for p, k in zip(lv1, ("path", "ok", "dead"))]
+    a, b = lv1[0], lv1[1]
+    lv2 = [((a[0] - 50, ys[2]), a, "dead"), ((a[0] + 50, ys[2]), a, "path"),
+           ((b[0] - 32, ys[2]), b, "dead"), ((b[0] + 52, ys[2]), b, "ok")]
+    lv3 = [((a[0] + 18, ys[3]), lv2[1][0], "dead"), ((a[0] + 82, ys[3]), lv2[1][0], "path"),
+           ((b[0] + 52, ys[3]), lv2[3][0], "ok")]
+    nodes += lv2 + lv3
+    colors = {"ok": "#334155", "path": "#22C55E", "dead": "#EF4444"}
+    for pos, parent, kind in nodes:
+        if parent:
+            d.line([parent, pos], fill=colors["path"] if kind == "path" else "#94A3B8", width=8 if kind == "path" else 5)
+    for pos, parent, kind in nodes:
+        r = 26 if kind != "dead" else 22
+        x, y = pos
+        if kind == "dead":
+            d.ellipse([x - r, y - r, x + r, y + r], fill="#FFFFFF", outline=colors["dead"], width=6)
+            d.line([x - 12, y - 12, x + 12, y + 12], fill=colors["dead"], width=6)
+            d.line([x - 12, y + 12, x + 12, y - 12], fill=colors["dead"], width=6)
+        else:
+            d.ellipse([x - r, y - r, x + r, y + r], fill=colors[kind], outline="#0B1220", width=4)
+    return img
+
+
 def make(n, author, out, tag="DAA  \u00b7  BACKTRACKING", title=("N-QUEENS", "PROBLEM"),
          subtitle="Solved step by step", credit="PREPARED BY", tag_color=BLUE, visual="board"):
     img = Image.new("RGB", (W, H))
@@ -90,8 +121,8 @@ def make(n, author, out, tag="DAA  \u00b7  BACKTRACKING", title=("N-QUEENS", "PR
         t = y / H
         px.line([(0, y), (W, y)], fill=tuple(int(a + (b - a) * t) for a, b in zip(BG_TOP, BG_BOTTOM)))
 
-    # board on the right, tilted slightly, with a soft glow behind it
-    b = board(n, 470)
+    # board (or state space tree) on the right, tilted slightly, with a soft glow behind it
+    b = tree_card() if visual == "tree" else board(n, 470)
     glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ImageDraw.Draw(glow).rounded_rectangle([730, 105, 730 + b.width + 50, 105 + b.height + 50],
                                            radius=30, fill=(59, 130, 246, 150))
@@ -146,7 +177,7 @@ def main():
     ap.add_argument("--title", default="N-QUEENS|PROBLEM", help="one or two title lines, split with |")
     ap.add_argument("--subtitle", default="Solved step by step")
     ap.add_argument("--credit", default="PREPARED BY", help="label above the author name")
-    ap.add_argument("--visual", default="board", choices=["board", "board+graph"])
+    ap.add_argument("--visual", default="board", choices=["board", "board+graph", "tree"])
     args = ap.parse_args()
     out = make(args.n, args.author, args.out, args.tag, args.title.split("|"), args.subtitle, args.credit,
                args.tag_color, args.visual)

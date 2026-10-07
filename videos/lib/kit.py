@@ -250,9 +250,11 @@ class Tree(VGroup):
 
     events: [("place"|"kill"|"back", level, value)], levels/values 0-based."""
 
-    def __init__(self, events, width=6.0, height=4.2, r=0.17, level_names=None, value_fmt=lambda v: str(v + 1), **kw):
+    def __init__(self, events, width=6.0, height=4.2, r=0.17, level_names=None, value_fmt=lambda v: str(v + 1),
+                 kill_label=False, **kw):
         super().__init__(**kw)
         self.r = r
+        self.kill_label = kill_label        # killed nodes show the struck-out value instead of a plain cross
         nodes, stack = [{"parent": None, "level": -1, "kind": "root", "children": []}], [0]
         self.event_node = []
         for kind, level, value in events:
@@ -311,7 +313,14 @@ class Tree(VGroup):
         n = self.nodes[i]
         off = self.root.get_center() - self._root0          # follow the tree wherever it was moved
         p, q = self.node_pos[n["parent"]] + off, self.node_pos[i] + off
-        if n["kind"] == "kill":
+        if n["kind"] == "kill" and self.kill_label:
+            rk = self.r * 0.85
+            node = VGroup(Circle(rk, color=KILL, fill_color=BG, fill_opacity=1, stroke_width=3),
+                          label(self.value_fmt(n["value"]), 16, KILL, "BOLD"),
+                          Line(np.array([-rk, -rk, 0]) * 0.6, np.array([rk, rk, 0]) * 0.6, color=KILL,
+                               stroke_width=3)).move_to(q)
+            edge = Line(p, q, color=KILL, stroke_width=2, stroke_opacity=0.6)
+        elif n["kind"] == "kill":
             node = VGroup(Circle(self.r * 0.75, color=KILL, fill_color=BG, fill_opacity=1, stroke_width=3),
                           label("×", 20, KILL, "BOLD")).move_to(q)
             edge = Line(p, q, color=KILL, stroke_width=2, stroke_opacity=0.6)
