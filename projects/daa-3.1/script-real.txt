@@ -1,0 +1,52 @@
+01  {curious} Imagine you are in a maze. | At every junction you pick a path, and at a dead end, you walk back to the last junction and try another.
+02  {excited} That simple idea, go forward, and step back when stuck, | is one of the most powerful strategies in computer science: backtracking.
+03  {warm} Welcome to the DAA series. | I'm Abhijeet Karve, and I'll guide you through every algorithm, step by step.
+04  {explain} This is Unit Three, video one, the foundation of backtracking. | Today: the state space tree, explicit and implicit constraints, depth first search, and the control abstraction.
+05  {explain} Every one of these is a direct exam question, | so stay till the end for the exam tips.
+06  {curious} Here is our problem. | Three students, Aman, Bhavna and Chirag, must sit on three seats in a row.
+07  {explain} But Aman and Bhavna chat all the time, | so the teacher says they must not sit next to each other.
+08  {explain} Brute force would first write down every possible arrangement, | and only then check each one.
+09  {emphatic} Three choices for each seat: three times three times three, | twenty seven arrangements to build and test.
+10  {warm} Backtracking is smarter. | It fills one seat at a time, and checks the rules after every single choice.
+11  {explain} The moment a partial arrangement breaks a rule, it is thrown away, | with everything that could have grown from it.
+12  {explain} First, how we write a solution. | Backtracking always builds the answer as a tuple: x one, x two, up to x n.
+13  {explain} Here, x i is the student on seat i. | So the tuple A, C, B means Aman, then Chirag, then Bhavna.
+14  {curious} Every backtracking problem has two kinds of rules: | explicit constraints and implicit constraints.
+15  {explain} Explicit constraints restrict each x i on its own, to a set of allowed values. | Here, every seat must hold A, B or C.
+16  {explain} All tuples that satisfy the explicit constraints form the solution space: | here, the twenty seven arrangements.
+17  {explain} Implicit constraints relate the x i's to each other, | and decide which tuples are real answers.
+18  {emphatic} Here there are two. | No student can sit on two seats, and Aman and Bhavna must not be neighbours.
+19  {warm} Remember: explicit is about one variable, | implicit is about how the variables relate.
+20  {explain} Now let's organise the search as a tree, called the state space tree. | The root is the empty arrangement.
+21  {explain} Level one chooses seat one, level two chooses seat two, and level three chooses seat three. | Each edge is one choice.
+22  {warm} Seat one gets Aman. | That is a new node.
+23  {explain} For seat two, Aman is already seated, so that branch dies. | Bhavna would sit next to Aman, so that dies too. | Chirag is fine.
+24  {excited} For seat three, only Bhavna is left, and she is not next to Aman. | A, C, B. Our first answer!
+25  {explain} Now we backtrack, | all the way up to seat one, and try Bhavna there.
+26  {excited} The same thing happens in mirror image. | B, C, A is our second answer.
+27  {explain} Finally, Chirag on seat one. | Aman and Bhavna are now forced together on seats two and three, so everything below dies.
+28  {warm} Done. Two answers, | from only twenty four nodes, instead of the thirty nine in the full tree.
+29  {explain} Some names you must know. | Every node in this tree is a problem state.
+30  {explain} Nodes whose path gives a complete tuple are solution states, | and those that satisfy every constraint are answer states.
+31  {explain} While searching, a live node is a node that has been generated, | but whose children have not all been generated yet.
+32  {explain} The E node is the live node being expanded right now. | A dead node is never expanded again.
+33  {emphatic} The test that kills nodes is the bounding function. | It returns false when a partial tuple can never become an answer.
+34  {curious} Now look at the order in which the nodes were created.
+35  {explain} We always went as deep as possible first, | and came back up only when we were stuck. That is depth first search.
+36  {explain} Going level by level would be breadth first search, | the idea behind branch and bound, in video three point four.
+37  {explain} Now the general algorithm, the control abstraction. | Backtrack of k fills position k, once x one to x k minus one are chosen.
+38  {explain} T gives every possible value for x k. | That is where the explicit constraints come in.
+39  {explain} B k is the bounding function, where the implicit constraints are checked. | Only values that pass it are kept.
+40  {explain} If the tuple is a complete answer, we write it out. | If there are more positions to fill, we call Backtrack of k plus one.
+41  {warm} For our seating problem, T is the three students, | and B checks that nobody is seated twice and Aman is not next to Bhavna.
+42  {explain} Its speed depends on four things: | the time to generate x k, how many values satisfy the explicit constraints, | the time for the bounding function, and how many values pass it.
+43  {explain} In the worst case the tree is still exponential, | but a good bounding function makes backtracking fast in practice.
+44  {curious} Your turn. | List all binary strings of length three, with no two ones next to each other.
+45  {warm} Pause the video, and draw the state space tree. | I'll wait!
+46  {explain} Each level chooses zero or one, | and a node dies the moment it puts a one right after another one.
+47  {excited} So there are five answers: | zero zero zero, zero zero one, zero one zero, one zero zero, and one zero one.
+48  {emphatic} Exam tip one. | Define explicit and implicit constraints, with an example like today's.
+49  {emphatic} Exam tip two. | Draw the state space tree, number the nodes in the order they are generated, and cross out the dead ones.
+50  {emphatic} Exam tip three. | Write the control abstraction, and explain T and the bounding function in one line each.
+51  {warm} To recap: | backtracking builds a tuple one choice at a time, | searches the state space tree depth first, | and kills a node the moment it fails the bounding function.
+52  {warm} In the next video, we use all of this to solve the eight queens problem and graph coloring. | See you there!
