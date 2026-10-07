@@ -244,6 +244,9 @@ def youtube_description(sched, meta, out):
             title = b["section"].replace(" \u00b7 ", ": ")
             if b["start"] - 0.6 - chapters[-1][0] >= 10:          # YouTube needs 10 s per chapter
                 chapters.append((b["start"] - 0.6, title))
+            else:                                                 # too short: keep its name, merged
+                t0, prev = chapters[-1]
+                chapters[-1] = (t0, f"{prev} & {title}" if t0 > 0 else prev)
     lines = [f"{int(t // 60)}:{int(t % 60):02d} {name}" for t, name in chapters]
     text = f"""TITLE
 {meta['title']} | DAA Unit {meta['unit']} ({meta['code']}) | Backtracking Explained
