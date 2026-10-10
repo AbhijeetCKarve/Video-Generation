@@ -333,7 +333,8 @@ def main():
             piece[:len(fade)] *= fade                       # soft edges: no clicks where phrases join
             piece[-len(fade):] *= fade[::-1]
             text = m.transcribe(resample(piece, SR, 16000))
-            if len(words(text)) >= 2:                    # drop clicks, beeps and stray noises
+            # drop clicks, beeps and stray noises, but keep short real phrases ("First,", "A, C, B.")
+            if len(words(text)) >= 2 or (words(text) and b - a > 0.4):
                 segs.append({"audio": piece, "text": text, "start": a, "end": b})
     if not segs:
         sys.exit("No speech found in the reference recording.")
