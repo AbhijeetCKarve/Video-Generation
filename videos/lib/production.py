@@ -210,26 +210,34 @@ def render(scene_py, sched_path, env_path, sfx_log, media_dir, quality="h"):
     return found[-1]
 
 
-def face_layer(face, tmp):
-    """FFmpeg inputs + filter that lay the face-cam clip, cut to a circle, over the mascot's spot."""
+def face_layer(faces, tmp):
+    """FFmpeg inputs + filter laying each face clip, cut to a circle, over the scene while it is on.
+    faces: [{"clip", "start", "end", "pos": (x, y) in scene units}]."""
     from PIL import Image
-    clip, start = face
-    size = int(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "stream=width",
-                               "-of", "csv=p=0", str(clip)], capture_output=True, text=True).stdout)
-    y, x = np.mgrid[:size, :size] + 0.5
-    r = np.hypot(x - size / 2, y - size / 2)
-    mask = tmp / "face-mask.png"
-    Image.fromarray((np.clip(size / 2 - 1 - r + 0.5, 0, 1) * 255).astype("uint8"), "L").save(mask)
     px = 1920 / 14.2222                                         # pixels per scene unit at 1080p
-    cx, cy = 960 + FACE_POS[0] * px, 540 - FACE_POS[1] * px
-    inputs = ["-i", clip, "-loop", "1", "-i", mask]
-    graph = (f"[4:v]format=rgba[fc];[5:v]format=gray[mk];[fc][mk]alphamerge,fade=t=in:st=0:d=0.6:alpha=1,"
-             f"setpts=PTS-STARTPTS+{start}/TB[face];[0:v][face]overlay={cx - size / 2:.0f}:{cy - size / 2:.0f}"
-             f":eof_action=pass[base];")
-    return inputs, graph
+    inputs, graph, masks, base = [], "", {}, "[0:v]"
+    for i, f in enumerate(faces):
+        size = int(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "stream=width",
+                                   "-of", "csv=p=0", str(f["clip"])], capture_output=True, text=True).stdout)
+        if size not in masks:                                   # soft-edged circle, one per clip size
+            y, x = np.mgrid[:size, :size] + 0.5
+            r = np.hypot(x - size / 2, y - size / 2)
+            masks[size] = tmp / f"face-mask-{size}.png"
+            Image.fromarray((np.clip(size / 2 - 1 - r + 0.5, 0, 1) * 255).astype("uint8"), "L").save(masks[size])
+        cx, cy = 960 + f["pos"][0] * px, 540 - f["pos"][1] * px
+        vi, mi = 4 + 2 * i, 5 + 2 * i                           # inputs 0-3 are the scene, voice and music
+        inputs += ["-i", f["clip"], "-loop", "1", "-i", masks[size]]
+        dur = f["end"] - f["start"]
+        graph += (f"[{vi}:v]format=rgba[fc{i}];[{mi}:v]format=gray[mk{i}];[fc{i}][mk{i}]alphamerge,"
+                  f"fade=t=in:st=0:d=0.4:alpha=1,fade=t=out:st={dur - 0.4:.3f}:d=0.4:alpha=1,"
+                  f"setpts=PTS-STARTPTS+{f['start']:.3f}/TB[face{i}];"
+                  f"{base}[face{i}]overlay={cx - size / 2:.0f}:{cy - size / 2:.0f}:eof_action=pass"
+                  f":enable='between(t,{f['start']:.3f},{f['end']:.3f})'[ov{i}];")
+        base = f"[ov{i}]"
+    return inputs, graph.replace(base, "[base]") if faces else (inputs, graph)
 
 
-def mix(sched, video, narr_wav, sfx_log, srt_path, thumbnail, out, theme="clean", face=None):
+def mix(sched, video, narr_wav, sfx_log, srt_path, thumbnail, out, theme="clean", faces=None):
     tmp = Path(out).parent / ("tmp-" + Path(out).stem)
     tmp.mkdir(exist_ok=True)
     voice, _ = sf.read(narr_wav, dtype="float32")
@@ -249,8 +257,8 @@ def mix(sched, video, narr_wav, sfx_log, srt_path, thumbnail, out, theme="clean"
     subs = tmp / "captions.srt"
     subs.write_text(Path(srt_path).read_text())
     face_in, face_graph, base = [], "", "[0:v]"
-    if face:                                                    # your camera, in the mascot's circle
-        face_in, face_graph = face_layer(face, tmp)
+    if faces:                                                   # your camera, in a circle
+        face_in, face_graph = face_layer(faces, tmp)
         base = "[base]"
     vedit.run(["ffmpeg", "-y", "-i", video, "-i", video, "-i", tmp / "voice.wav", "-i", tmp / "fxmusic.wav", *face_in,
                "-filter_complex", graph + ";" + face_graph + f"{base}subtitles=filename='{subs}':force_style='{style}'[vout]",
@@ -294,6 +302,44 @@ TAGS
     Path(out).write_text(text)
 
 
+def cameo_voice(p, spec):
+    """voice-cameo/: the cloned lines, with the beats named in spec["lines"] replaced by your real
+    recording of the same line from another video (wav + caption timings)."""
+    import shutil
+    src, dst, real = p / "voice", p / "voice-cameo", ROOT / spec["real"]
+    dst.mkdir(exist_ok=True)
+    for f in src.glob("[0-9]*.*"):
+        shutil.copy(f, dst / f.name)
+    for num, real_num in spec["lines"].items():
+        for ext in ("wav", "json"):
+            shutil.copy(real / f"{real_num}.{ext}", dst / f"{num}.{ext}")
+    return dst
+
+
+def cameo_shots(sched, spec):
+    """When each cameo is on screen: [{"kind", "start", "end", "pos", "num"?, "line_start"?}]."""
+    beats = sched["beats"]
+    at = {b["key"]: i for i, b in enumerate(beats)}
+    shots = []
+    for shot in spec["shots"]:
+        kind, pos = shot["kind"], shot["pos"]
+        if kind == "end":
+            shots.append({"beat": "end", "kind": "quiet", "start": sched["end_card"] + 0.3, "end": sched["total"],
+                          "pos": pos})
+            continue
+        b = beats[at[shot["beat"]]]
+        nxt = beats[at[shot["beat"]] + 1]["start"] - 0.15
+        if kind == "line":                                     # you say this line yourself, on camera
+            shots.append({"beat": b["key"], "kind": "line", "start": round(b["start"] - 0.5, 3), "end": round(nxt, 3),
+                          "pos": pos, "num": spec["lines"][b["num"]], "line_start": b["start"]})
+        else:                                                  # "after": you wait on camera once the line is said
+            start = b["start"] + b["dur"] + 0.35
+            if nxt - start >= 1.5:
+                shots.append({"beat": b["key"], "kind": "quiet", "start": round(start, 3), "end": round(nxt, 3),
+                              "pos": pos})
+    return shots
+
+
 def main(beats_mod, scene_py, project_dir, sections, min_window, meta):
     import argparse
     ap = argparse.ArgumentParser()
@@ -301,14 +347,17 @@ def main(beats_mod, scene_py, project_dir, sections, min_window, meta):
     ap.add_argument("--estimate", action="store_true", help="schedule from word counts (voice not ready)")
     ap.add_argument("--quality", default="h", choices=["l", "m", "h"])
     ap.add_argument("--variant", default="", help="e.g. 'real': uses voice-real/, build-real/, daa-<code>-real.mp4; "
-                    "'face': real voice + your camera (--camera) where the mascot stands")
-    ap.add_argument("--camera", help="face variant: the camera recording the real-voice lines were cut from")
+                    "'face': real voice + your camera (--camera) where the mascot stands; "
+                    "'cameo': cloned voice + the mascot, with you on camera in a few short shots (meta['cameo'])")
+    ap.add_argument("--camera", help="face/cameo variants: the camera recording your real-voice lines were cut from")
     args = ap.parse_args()
     p = Path(project_dir)
     sfx = f"-{args.variant}" if args.variant else ""
-    if args.variant == "face" and not args.camera:
-        sys.exit("The face variant needs --camera <your camera recording>.")
+    if args.variant in ("face", "cameo") and not args.camera:
+        sys.exit(f"The {args.variant} variant needs --camera <your camera recording>.")
     voice_dir = p / ("voice-real" if args.variant == "face" else f"voice{sfx}")
+    if args.variant == "cameo":
+        voice_dir = cameo_voice(p, meta["cameo"])
     build = p / f"build{sfx}"
     build.mkdir(parents=True, exist_ok=True)
     os.environ["VARIANT"] = args.variant                    # the scene can adapt (e.g. the intro line)
@@ -316,6 +365,9 @@ def main(beats_mod, scene_py, project_dir, sections, min_window, meta):
     narr, sfx_log, srt_path = build / "narration.wav", build / "sfx.json", build / "captions.srt"
     if args.step in ("schedule", "all"):
         sched = schedule(beats_mod.BEATS, sections, min_window, voice_dir, sched_path, args.estimate, meta)
+        if args.variant == "cameo":
+            sched["cameos"], sched["face_px"] = cameo_shots(sched, meta["cameo"]), meta["cameo"]["size"]
+            sched_path.write_text(json.dumps(sched, indent=1))
         narration(sched, narr, env_path)
         srt(sched, srt_path)
     if args.step in ("render", "all"):
@@ -327,11 +379,17 @@ def main(beats_mod, scene_py, project_dir, sections, min_window, meta):
         video = Path((build / "render.txt").read_text().strip())
         out = p / "output" / f"daa-{meta['code']}{sfx}.mp4"
         out.parent.mkdir(exist_ok=True)
-        face = None
+        faces = None
         if args.variant == "face":
             import facecam
             start = next(b["start"] for b in sched["beats"] if b["key"] == "hook_mascot")
-            face = (facecam.track(sched, voice_dir, args.camera, build / "face.mp4", start), start)
-        mix(sched, video, narr, sfx_log, srt_path, p / "output" / "thumbnail.png", out, face=face)
+            clip = facecam.track(sched, voice_dir, args.camera, build / "face.mp4", start)
+            faces = [{"clip": clip, "start": start, "end": sched["total"], "pos": FACE_POS}]
+        elif args.variant == "cameo":
+            import facecam
+            real = ROOT / meta["cameo"]["real"]
+            clips = facecam.cameos(sched["cameos"], args.camera, real, build, sched["face_px"])
+            faces = [{"clip": c, **{k: s[k] for k in ("start", "end", "pos")}} for c, s in zip(clips, sched["cameos"])]
+        mix(sched, video, narr, sfx_log, srt_path, p / "output" / "thumbnail.png", out, faces=faces)
         youtube_description(sched, meta, p / "output" / f"youtube-description{sfx}.txt")
         print(f"Final video: {out}")

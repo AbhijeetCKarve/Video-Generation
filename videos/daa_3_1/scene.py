@@ -21,6 +21,8 @@ MASCOT_POS = np.array([-5.75, -1.05, 0])
 VARIANT = os.environ.get("VARIANT", "")
 FACE = VARIANT == "face"          # your camera in a circle where the mascot stands
 FACE_POS = np.array([-6.07, -1.05, 0])
+CAMEO = VARIANT == "cameo"        # the mascot, plus you on camera in a few short shots (S["cameos"])
+CAMEOS = {c.get("beat", "end"): c for c in S.get("cameos", [])}
 
 STUDENTS = "ABC"
 NAMES = {"A": "Aman", "B": "Bhavna", "C": "Chirag"}
@@ -148,6 +150,26 @@ class Video(Scene):
             self.go(FadeOut(self.bubble_mob), run_time=0.25)
             self.bubble_mob = None
 
+    # ------------------------------------------------------------ cameos (you on camera, laid in at the mix)
+    def cameo_in(self, shot):
+        """The ring your face appears in; the mascot steps off-screen while you are on."""
+        self.unsay()
+        self.until(shot["start"])
+        self.face_ring = FaceSpot(accent=UNIT_COLORS[S["unit"]], radius=S["face_px"] / 2 / 135).move_to(
+            np.array([*shot["pos"], 0]))
+        anims = [GrowFromCenter(self.face_ring)]
+        if self.mascot_on:
+            anims.append(self.mascot.animate.move_to(MASCOT_POS + LEFT * 4))
+        self.go(*anims, run_time=0.4)
+        self.sfx("whoosh", -0.3)
+
+    def cameo_out(self, shot):
+        self.until(shot["end"] - 0.3)
+        anims = [ShrinkToCenter(self.face_ring)]
+        if self.mascot_on:
+            anims.append(self.mascot.animate.move_to(MASCOT_POS))
+        self.go(*anims, run_time=0.3)
+
     # ------------------------------------------------------------ main loop
     def construct(self):
         self.sfx_events, self.pending, self.stage = [], [], VGroup()
@@ -166,6 +188,8 @@ class Video(Scene):
             self.mascot.attach(self.now, ENV)
             self.add(self.mascot)
         for b in S["beats"]:
+            if CAMEO and CAMEOS.get(b["key"], {}).get("kind") == "line":   # your face comes in just before
+                self.cameo_in(CAMEOS[b["key"]])
             self.until(b["start"])
             if b["section"] and self.header_on:
                 self.pending.append(self.header.set_section(b["section"]))
@@ -233,6 +257,15 @@ class Video(Scene):
 
     def b_hook_mascot(self, b):
         self.clear(run_time=0.5)
+        if CAMEO:                        # you say the welcome yourself; Algo arrives at the next line
+            series = label("DAA SERIES", 34, MUTED, "BOLD")
+            by = label("by Abhijeet Karve", 54, TEXT, "BOLD")
+            g = VGroup(series, by).arrange(DOWN, buff=0.25).move_to(STAGE + UP * 0.4)
+            self.show(g, anim=FadeIn, run_time=0.6, shift=UP * 0.2)
+            self.at(b, 1)
+            guide = label("your guide, step by step", 30, ACCENT).next_to(g, DOWN, buff=0.4)
+            self.show(guide, run_time=0.5)
+            return
         self.mascot_on = True
         if FACE:                         # the face-cam fades in inside this ring at the mix
             self.go(GrowFromCenter(self.mascot), run_time=0.6)
@@ -252,7 +285,16 @@ class Video(Scene):
 
     def b_syllabus(self, b):
         self.unsay()
-        self.clear(run_time=0.4)
+        if CAMEO:                        # hand-over: your face goes, Algo slides in and says hi
+            self.cameo_out(CAMEOS["hook_mascot"])
+            self.clear(run_time=0.4)
+            self.mascot_on = True
+            self.go(self.mascot.animate.move_to(MASCOT_POS), run_time=0.6)
+            self.sfx("whoosh")
+            self.go(self.mascot.wave(), run_time=0.8)
+            self.say("Hi! I'm Algo")
+        else:
+            self.clear(run_time=0.4)
         self.header_on = True
         self.header.set_section("Today's plan")
         self.add(self.header)
@@ -733,9 +775,13 @@ class Video(Scene):
         self.say("Your turn!")
         self.at(b, 1)
         self.say("I'll wait!")
+        if CAMEO and "p_pause" in CAMEOS:     # ...and you wait on camera while they draw
+            self.cameo_in(CAMEOS["p_pause"])
 
     def b_p_tree(self, b):
         self.unsay()
+        if CAMEO and "p_pause" in CAMEOS:
+            self.cameo_out(CAMEOS["p_pause"])
         self.clear(run_time=0.4)
         self.btree = Tree(BIN_EV, width=5.6, height=3.6, r=0.2, level_names=["x1", "x2", "x3"],
                           value_fmt=str, kill_label=True)
@@ -813,3 +859,5 @@ class Video(Scene):
         by = VGroup(label("CREATED BY", 24, MUTED, "BOLD"), label("Abhijeet Karve", 44, GOLD, "BOLD")).arrange(DOWN, buff=0.1)
         g = VGroup(thanks, by).arrange(DOWN, buff=0.4).move_to(STAGE + UP * 1.7)
         self.show(g, run_time=0.8, shift=UP * 0.2)
+        if CAMEO and "end" in CAMEOS:         # you, next to your name, for the end screen
+            self.cameo_in(CAMEOS["end"])

@@ -7,7 +7,10 @@ moment the narration plays we show the frames recorded while you said those word
 you listening: the silent footage after the phrase, played back and forth when the
 pause is longer than what was recorded. Cuts get a short cross-fade.
 
-    track(sched, voice_dir, camera, out, start) -> square face clip from `start` to the end
+    track(sched, voice_dir, camera, out, start)   -> one clip from `start` to the end (face variant)
+    cameos(shots, camera, real_dir, out_dir, size) -> one short clip per cameo (cameo variant):
+        kind "line":  you saying a real-voice line NN (lip-synced)
+        kind "quiet": you sitting quietly (the footage after your last line), for pauses
 """
 import json
 import subprocess
@@ -71,6 +74,21 @@ def line_pieces(raw_wav, line_wav, source, prev_end):
     return [(a - lead, b - lead, s) for a, b, s in out], prev_end
 
 
+def pingpong(a, e, n):
+    """n frame times rocking back and forth between source times a and e."""
+    span = max(e - a, 1.0 / FPS)
+    x = np.arange(n) / FPS
+    tri = np.abs(((x / span) + 1) % 2 - 1)                # 1 -> 0 -> 1 ...
+    return a + span * (1 - tri)
+
+
+def quiet_stretches(talk, end):
+    """Stretches of the recording where you sit quietly: long pauses, before you start, after you finish."""
+    talk = np.array(talk)
+    idle = [(e1 + 0.1, s2 - 0.1) for (_, e1), (s2, _) in zip(talk, talk[1:]) if s2 - e1 > 0.9]
+    return idle + [(0.0, talk[0, 0] - 0.1), (talk[-1, 1] + 0.4, end - 0.1)]
+
+
 def frame_map(sched, voice_dir, source, talk, start, total):
     """Source time for every output frame from `start` to `total` (np.nan = keep previous)."""
     spoken, prev_end = [], 0.0
@@ -84,18 +102,11 @@ def frame_map(sched, voice_dir, source, talk, start, total):
             spoken.append((b["start"] + a, b["start"] + e, s + (a - pieces[i][0])))
     talk = np.array(talk)
     end = len(source) / AR
-    idle = [(e1 + 0.1, s2 - 0.1) for (_, e1), (s2, _) in zip(talk, talk[1:]) if s2 - e1 > 0.9]
-    idle += [(0.0, talk[0, 0] - 0.1), (talk[-1, 1] + 0.4, end - 0.1)]    # before you start, after you finish
+    idle = quiet_stretches(talk, end)
 
     def next_talk(p):
         later = talk[talk[:, 0] > p + 0.05]
         return later[0, 0] - 0.1 if len(later) else len(source) / AR - 0.1
-
-    def pingpong(a, e, n):
-        span = max(e - a, 1.0 / FPS)
-        x = np.arange(n) / FPS
-        tri = np.abs(((x / span) + 1) % 2 - 1)            # 1 -> 0 -> 1 ...
-        return a + span * (1 - tri)
 
     n_out = int(round((total - start) * FPS))
     src = np.full(n_out, np.nan)
@@ -130,23 +141,22 @@ def frame_map(sched, voice_dir, source, talk, start, total):
     return src
 
 
-def track(sched, voice_dir, camera, out, start):
-    out = Path(out)
-    work = out.parent
-    audio = load(camera, AR)
-    talk = speech_segments(load(camera, 16000), 16000)
-    src = frame_map(sched, voice_dir, audio, talk, start, sched["total"])
-    np.save(work / "face-map.npy", src)
-    frames = work / "face-frames.rgb"
+def decode(camera, work, size):
+    """The camera recording as raw square frames at `size` px (cached next to the build)."""
+    frames = Path(work) / f"face-frames-{size}.rgb"
     if not frames.exists() or frames.stat().st_mtime < Path(camera).stat().st_mtime:
         print("Face cam: decoding the camera recording")
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(camera), "-vf",
-                        f"{CROP},scale={SIZE}:{SIZE}:flags=lanczos,{LOOK}", "-pix_fmt", "rgb24", "-f", "rawvideo",
+                        f"{CROP},scale={size}:{size}:flags=lanczos,{LOOK}", "-pix_fmt", "rgb24", "-f", "rawvideo",
                         str(frames)], check=True)
-    cam = np.memmap(frames, dtype="uint8", mode="r").reshape(-1, SIZE, SIZE, 3)
+    return np.memmap(frames, dtype="uint8", mode="r").reshape(-1, size, size, 3)
+
+
+def encode(cam, src, size, out):
+    """Write the frames cam[src] (source times in seconds) as a clip, cross-fading at every cut."""
     idx = np.clip(np.round(src * FPS).astype(int), 0, len(cam) - 1)
     enc = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
-                            "-s", f"{SIZE}x{SIZE}", "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-crf", "12",
+                            "-s", f"{size}x{size}", "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-crf", "12",
                             "-preset", "medium", "-pix_fmt", "yuv420p", str(out)], stdin=subprocess.PIPE)
     cuts = 0
     blend_from, blend_left = None, 0
@@ -163,6 +173,43 @@ def track(sched, voice_dir, camera, out, start):
         enc.stdin.write(frame.astype("uint8").tobytes())
     enc.stdin.close()
     enc.wait()
-    (work / "face.json").write_text(json.dumps({"start": start, "frames": len(idx), "cuts": cuts}))
-    print(f"Face cam: {len(idx) / FPS:.0f}s, {cuts} cuts -> {out}")
+    return cuts
+
+
+def track(sched, voice_dir, camera, out, start, size=SIZE):
+    """Face variant: one clip following every line from `start` to the end of the video."""
+    out = Path(out)
+    work = out.parent
+    audio = load(camera, AR)
+    talk = speech_segments(load(camera, 16000), 16000)
+    src = frame_map(sched, voice_dir, audio, talk, start, sched["total"])
+    np.save(work / "face-map.npy", src)
+    cam = decode(camera, work, size)
+    cuts = encode(cam, src, size, out)
+    (work / "face.json").write_text(json.dumps({"start": start, "frames": len(src), "cuts": cuts}))
+    print(f"Face cam: {len(src) / FPS:.0f}s, {cuts} cuts -> {out}")
     return out
+
+
+def cameos(shots, camera, real_dir, out_dir, size):
+    """Cameo variant: a short clip per shot. shots: [{"kind": "line"|"quiet", "start", "end", "num"?}]."""
+    out_dir = Path(out_dir)
+    audio = load(camera, AR)
+    talk = speech_segments(load(camera, 16000), 16000)
+    cam = decode(camera, out_dir, size)
+    a, e = quiet_stretches(talk, len(audio) / AR)[-1]      # you after your last line: the longest quiet footage
+    clips = []
+    for i, shot in enumerate(shots):
+        n = int(round((shot["end"] - shot["start"]) * FPS))
+        if shot["kind"] == "line":
+            num = shot["num"]
+            dur = sf.info(Path(real_dir) / f"{num}.wav").duration
+            one = {"beats": [{"num": num, "start": shot["line_start"], "dur": dur}]}
+            src = frame_map(one, real_dir, audio, talk, shot["start"], shot["end"])
+        else:
+            src = pingpong(a, e, n)
+        clip = out_dir / f"cameo-{i}.mp4"
+        cuts = encode(cam, src, size, clip)
+        print(f"Cameo {i} ({shot['kind']}): {n / FPS:.1f}s, {cuts} cuts -> {clip}")
+        clips.append(str(clip))
+    return clips

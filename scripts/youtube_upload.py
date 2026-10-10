@@ -72,7 +72,7 @@ def main():
     project = Path(args.project)
     sfx = f"-{args.variant}" if args.variant else ""
     videos = [f for f in (project / "output").glob("daa-*.mp4") if f.stem.endswith(sfx) and
-              (sfx or not any(f.stem.endswith(x) for x in ("-real", "-face")))]
+              (sfx or not any(f.stem.endswith(x) for x in ("-real", "-face", "-cameo")))]
     video = sorted(videos, key=lambda f: f.stat().st_mtime)[-1]
     gates(project, video, args.consent, args.again, sfx)
     title, body, tags = read_metadata(project / "output" / f"youtube-description{sfx}.txt")

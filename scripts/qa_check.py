@@ -176,7 +176,7 @@ def main():
     p = Path(args.project)
     sfx = f"-{args.variant}" if args.variant else ""
     candidates = [f for f in (p / "output").glob("daa-*.mp4") if f.stem.endswith(sfx) and
-                  (sfx or not any(f.stem.endswith(x) for x in ("-real", "-face")))]
+                  (sfx or not any(f.stem.endswith(x) for x in ("-real", "-face", "-cameo")))]
     video = Path(args.video) if args.video else sorted(candidates, key=lambda f: f.stat().st_mtime)[-1]
     desc_path = p / "output" / f"youtube-description{sfx}.txt"
     desc = desc_path.read_text() if desc_path.exists() else ""

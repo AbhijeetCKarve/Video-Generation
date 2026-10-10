@@ -30,11 +30,16 @@ SECTIONS = {
 }
 # lines whose animation needs more time than the narration takes
 MIN_WINDOW = {"hook_maze": 9.5, "hook_name": 5.5, "hook_mascot": 6.0, "bf_brute": 5.5, "t_c": 8.5,
-              "d_order": 5.0, "d_bfs": 6.0, "p_pause": 6.0, "p_tree": 7.0, "p_answer": 5.5}
+              "d_order": 5.0, "d_bfs": 6.0, "p_pause": 10.0, "p_tree": 7.0, "p_answer": 5.5}
 
 if __name__ == "__main__":
     main(beats, HERE / "scene.py", HERE.parents[1] / "projects" / "daa-3.1", SECTIONS, MIN_WINDOW,
          {"title": beats.TITLE, "code": beats.CODE, "unit": beats.UNIT, "end_secs": 15.0, "title_suffix": "State Space Tree Explained",
+          # cameo variant: you on camera in three short shots, from the 3.2 recording (same welcome line)
+          "cameo": {"size": 312, "real": "projects/daa-3.2/voice-real", "lines": {"03": "03"},
+                    "shots": [{"beat": "hook_mascot", "kind": "line", "pos": [-5.8, -1.0]},
+                              {"beat": "p_pause", "kind": "after", "pos": [-5.8, -1.0]},
+                              {"kind": "end", "pos": [-5.8, 1.3]}]},
           "summary": "What is backtracking, and why is it so much faster than brute force? Using a simple seating "
                      "puzzle, we build the state space tree step by step, explain explicit and implicit constraints, "
                      "problem, solution and answer states, live, E- and dead nodes, the bounding function, "
