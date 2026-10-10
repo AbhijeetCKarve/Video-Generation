@@ -1,0 +1,21 @@
+Video 3.1 - lines to record in your voice (the ones with Aman, Bhavna, Chirag or tuple).
+Read each line once, naturally, with a short pause between lines. Say the words exactly as written;
+the number is only for your reference, do not read it.
+
+06  Here is our problem. Three students, Aman, Bhavna and Chirag, must sit on three seats in a row.
+07  But Aman and Bhavna chat all the time, so the teacher says they must not sit next to each other.
+12  First, how we write a solution. Backtracking always builds the answer as a tuple: x one, x two, up to x n.
+13  Here, x i is the student on seat i. So the tuple A, C, B means Aman, then Chirag, then Bhavna.
+16  All tuples that satisfy the explicit constraints form the solution space: here, the twenty seven arrangements.
+17  Implicit constraints relate the x i's to each other, and decide which tuples are real answers.
+18  Here there are two. No student can sit on two seats, and Aman and Bhavna must not be neighbours.
+22  Seat one gets Aman. That is a new node.
+23  For seat two, Aman is already seated, so that branch dies. Bhavna would sit next to Aman, so that dies too. Chirag is fine.
+24  For seat three, only Bhavna is left, and she is not next to Aman. A, C, B. Our first answer!
+25  Now we backtrack, all the way up to seat one, and try Bhavna there.
+27  Finally, Chirag on seat one. Aman and Bhavna are now forced together on seats two and three, so everything below dies.
+30  Nodes whose path gives a complete tuple are solution states, and those that satisfy every constraint are answer states.
+33  The test that kills nodes is the bounding function. It returns false when a partial tuple can never become an answer.
+40  If the tuple is a complete answer, we write it out. If there are more positions to fill, we call Backtrack of k plus one.
+41  For our seating problem, T is the three students, and B checks that nobody is seated twice and Aman is not next to Bhavna.
+51  To recap: backtracking builds a tuple one choice at a time, searches the state space tree depth first, and kills a node the moment it fails the bounding function.

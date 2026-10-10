@@ -190,6 +190,26 @@ class FaceSpot(VGroup):
     bounce = wave = point = tilt = _still
 
 
+class NoMascot(VGroup):
+    """Stand-in for videos with no on-screen guide: every gesture is a harmless no-op."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.dot = Dot(radius=0.001, fill_opacity=0, stroke_width=0).move_to([0, -12, 0])
+        self.add(self.dot)
+
+    def attach(self, clock, envelope, fps=30):
+        return self
+
+    def _still(self):
+        return Animation(self.dot)
+
+    def set_mood(self, mood):
+        return self._still()
+
+    bounce = wave = point = tilt = _still
+
+
 # ---------------------------------------------------------------- chessboard
 class Board(VGroup):
     def __init__(self, n, size=3.4, labels=True, **kw):

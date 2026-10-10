@@ -16,13 +16,14 @@ ENV = np.load(os.environ["ENVELOPE"])
 SFX_LOG = os.environ.get("SFX_LOG")
 config.background_color = BG
 
-STAGE = np.array([0.9, 0.15, 0])
 MASCOT_POS = np.array([-5.75, -1.05, 0])
 VARIANT = os.environ.get("VARIANT", "")
 FACE = VARIANT == "face"          # your camera in a circle where the mascot stands
 FACE_POS = np.array([-6.07, -1.05, 0])
-CAMEO = VARIANT == "cameo"        # the mascot, plus you on camera in a few short shots (S["cameos"])
+CAMEO = VARIANT == "cameo"        # you on camera in a few short shots (S["cameos"]), no mascot
 CAMEOS = {c.get("beat", "end"): c for c in S.get("cameos", [])}
+MASCOT = not CAMEO                # Algo on screen; without him the content sits in the middle
+STAGE = np.array([0.9 if MASCOT else 0.0, 0.15, 0])
 
 STUDENTS = "ABC"
 NAMES = {"A": "Aman", "B": "Bhavna", "C": "Chirag"}
@@ -140,7 +141,7 @@ class Video(Scene):
     def say(self, text, hold=None):
         """Speech bubble from the mascot; removed at the next bubble or explicitly."""
         self.unsay()
-        if FACE:                         # you say it yourself on camera
+        if FACE or not MASCOT:           # you say it yourself on camera / nobody to say it
             return
         self.bubble_mob = self.mascot.bubble(text)
         self.go(FadeIn(self.bubble_mob, shift=UP * 0.15), run_time=0.3)
@@ -183,6 +184,8 @@ class Video(Scene):
         self.header_on = False
         if FACE:
             self.mascot = FaceSpot(accent=UNIT_COLORS[S["unit"]], radius=0.926).move_to(FACE_POS)
+        elif not MASCOT:
+            self.mascot = NoMascot()
         else:
             self.mascot = Mascot(accent=UNIT_COLORS[S["unit"]], height=1.9).move_to(MASCOT_POS + LEFT * 4)
             self.mascot.attach(self.now, ENV)
@@ -285,14 +288,9 @@ class Video(Scene):
 
     def b_syllabus(self, b):
         self.unsay()
-        if CAMEO:                        # hand-over: your face goes, Algo slides in and says hi
+        if CAMEO:                        # your face goes, the lesson begins
             self.cameo_out(CAMEOS["hook_mascot"])
             self.clear(run_time=0.4)
-            self.mascot_on = True
-            self.go(self.mascot.animate.move_to(MASCOT_POS), run_time=0.6)
-            self.sfx("whoosh")
-            self.go(self.mascot.wave(), run_time=0.8)
-            self.say("Hi! I'm Algo")
         else:
             self.clear(run_time=0.4)
         self.header_on = True
@@ -800,7 +798,7 @@ class Video(Scene):
         self.at(b, 1)
         leaves = [e for e, ev in enumerate(BIN_EV) if ev[0] == "place" and ev[1] == 2]
         answers = VGroup(*[chip(s, SAFE, 26) for s in ("000", "001", "010", "100", "101")])
-        answers.arrange(DOWN, buff=0.18).move_to(np.array([5.4, 0.3, 0]))
+        answers.arrange(DOWN, buff=0.18).move_to(STAGE + np.array([4.5, 0.15, 0]))
         self.stage.add(answers)
         step = max(0.3, min(0.6, self.phrase_len(b, 1) / 5))
         for chip_, e in zip(answers, leaves):
